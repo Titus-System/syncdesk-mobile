@@ -1,50 +1,180 @@
-# Welcome to your Expo app 👋
+# Expo React Native — Build Guide
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Developer Setup
 
-## Get started
+These steps are for local development (not for producing a release APK).
 
-1. Install dependencies
+### Prerequisites
 
-   ```bash
-   npm install
-   ```
+- Node.js 20+ and npm
+- Android Studio with Android SDK installed (for Android development)
+- Xcode + CocoaPods (for iOS development on macOS)
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Install dependencies
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Run the app
 
-## Learn more
+```bash
+# Start Metro
+npm run start
 
-To learn more about developing your project with Expo, look at the following resources:
+# Android device/emulator
+npm run android
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+# iOS simulator (macOS only)
+npm run ios
 
-## Join the community
+# Web
+npm run web
+```
 
-Join our community of developers creating universal apps.
+### Common scripts
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+# Type check
+npm run type-check
+
+# Lint
+npm run lint
+
+# Tests
+npm run test
+
+# Full check (type-check + lint + test)
+npm run check
+```
+
+## Build Types
+
+There are three build types. They are **not interchangeable**.
+
+| Type                         | Contains JS bundle | Requires Metro running | Use case            |
+| ---------------------------- | ------------------ | ---------------------- | ------------------- |
+| `assembleDebug`              | No                 | Yes                    | Nothing useful      |
+| `assembleRelease`            | Yes                | No                     | Final APK for users |
+| Development client (Expo Go) | No                 | Yes                    | Development only    |
+
+**If you want an APK that works standalone on a user's device, you need `assembleRelease`.**
+
+The debug build produces an APK that shows a blank screen unless a Metro bundler is running on the same network. It is useless for distribution.
+
+---
+
+## Prerequisites
+
+- Android Studio with Android SDK installed
+- `ANDROID_HOME` environment variable set
+- **Node.js 20+** — this is a hard requirement. Metro uses `Array.toReversed()` which does not exist below Node 20.
+
+Verify before every build session:
+
+```bash
+node --version   # must be v20.x or higher
+echo $ANDROID_HOME
+```
+
+If using nvm, set the version and **stop any running Gradle daemon** before building — the daemon caches the Node path from when it was first started:
+
+```bash
+nvm use 20
+./gradlew --stop   # kills the old daemon that may be pointing to the wrong Node
+```
+
+---
+
+## Building the Release APK
+
+### Step 1 — Generate native project files
+
+Run from the project root:
+
+```bash
+npx expo prebuild --clean
+```
+
+`--clean` regenerates `android/` from scratch. Use it whenever dependencies or `app.json` have changed since the last prebuild. The first time is fine without it.
+
+### Step 2 — Build
+
+```bash
+cd android && ./gradlew assembleRelease
+```
+
+The first build takes 10–15 minutes. Subsequent builds reuse the Gradle cache and finish in 1–3 minutes.
+
+If the build fails with `configs.toReversed is not a function`, the Gradle daemon is using the wrong Node version. Fix:
+
+```bash
+./gradlew --stop
+./gradlew assembleRelease
+```
+
+If it still fails, force the correct Node path explicitly:
+
+```bash
+NODE=$(which node) ./gradlew assembleRelease
+```
+
+### Step 3 — Locate the APK
+
+```
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+### Step 4 — Install on device
+
+```bash
+# USB (physical device with USB debugging enabled)
+adb install android/app/build/outputs/apk/release/app-release.apk
+
+# Running emulator
+adb install android/app/build/outputs/apk/release/app-release.apk
+```
+
+Or transfer the `.apk` file directly to the device and open it.
+
+---
+
+## Signing
+
+An unsigned release APK can be installed manually but cannot be submitted to the Play Store. For Play Store distribution, you need a keystore.
+
+Generate one:
+
+```bash
+keytool -genkeypair -v \
+  -keystore android/app/release.keystore \
+  -alias release \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
+
+Then configure `android/app/build.gradle` to use it for release builds. Keep the keystore file and its passwords safe — losing it means you can never update the app on the Play Store.
+
+---
+
+## If Your Machine Crashes Mid-Build
+
+The Gradle cache survives crashes. Re-running `./gradlew assembleRelease` will resume from the cached state and finish much faster than the first build.
+
+---
+
+## Pre-Build Checklist
+
+```bash
+# Check for SDK version mismatches
+npx expo-doctor
+
+# Type check and lint
+npm run check
+
+# Confirm Node version
+node --version
+```
+
+Fix anything reported by `expo-doctor` before building. Dependency mismatches that are silent during development will cause build failures.
