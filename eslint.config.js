@@ -1,8 +1,19 @@
 // https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
+const tsEslintPlugin = require('@typescript-eslint/eslint-plugin');
 
 module.exports = defineConfig([
+  {
+    files: ['eslint.config.js'],
+    languageOptions: {
+      globals: {
+        __dirname: 'readonly',
+        module: 'readonly',
+        require: 'readonly',
+      },
+    },
+  },
   ...expoConfig,
   {
     files: ['**/*.{ts,tsx}'],
@@ -12,8 +23,9 @@ module.exports = defineConfig([
         tsconfigRootDir: __dirname,
       },
     },
-  },
-  {
+    plugins: {
+      '@typescript-eslint': tsEslintPlugin,
+    },
     rules: {
       // Ban any
       '@typescript-eslint/no-explicit-any': 'error',
