@@ -4,7 +4,18 @@ import Toolbar from '@/components/Toolbar';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+// [INSERIDO PELO TESTE]: Imports necessários para proteger a rota com a Biblioteca
+import { useGetMe } from '@titus-system/syncdesk/src';
+import { router } from 'expo-router';
+import React from 'react';
+
 export default function HomeScreen() {
+  // [INSERIDO PELO TESTE]: Proteção de rota. Expulsa o usuário para login se o Token for recusado.
+  const { isError, isLoading } = useGetMe();
+  React.useEffect(() => {
+    if (isError && !isLoading) router.replace('/login');
+  }, [isError, isLoading]);
+
   return (
     <>
       <View className="flex-1 bg-[#F4EAD9]">
