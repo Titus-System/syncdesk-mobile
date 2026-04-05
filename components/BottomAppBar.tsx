@@ -6,7 +6,7 @@ export default function BottomAppBar() {
   const pathname = usePathname();
 
   const isHome = pathname === '/';
-  const isSupport = pathname === '/support';
+  const isChat = pathname === '/chat';
   const isProfile = pathname === '/profile';
 
   return (
@@ -15,9 +15,9 @@ export default function BottomAppBar() {
         <TouchableOpacity onPress={() => router.push('/')}>
           <Octicons name={isHome ? 'home-fill' : 'home'} size={40} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/support')}>
+        <TouchableOpacity onPress={() => router.push('/chat')}>
           <Ionicons
-            name={isSupport ? 'chatbubble-ellipses-sharp' : 'chatbubble-ellipses-outline'}
+            name={isChat ? 'chatbubble-ellipses-sharp' : 'chatbubble-ellipses-outline'}
             size={40}
             color="white"
           />
