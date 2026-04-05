@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,11 +18,14 @@ import * as SecureStore from 'expo-secure-store';
 // [INTEGRAÇÃO]: Mantido o authContext e biblioteca oficial do repositório
 import { useAuth } from '@/contexts/AuthContext';
 import { useLogin, useGetMe } from '@titus-system/syncdesk/src';
+import { TERMS_TEXT } from '@/constants/terms'; //Termos de uso (constants/terms.ts)
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // [INTEGRAÇÃO]: Hooks originais mantidos
   const { setUser } = useAuth();
@@ -28,7 +33,7 @@ export default function LoginScreen() {
   const { refetch: refetchMe } = useGetMe();
   const queryClient = useQueryClient();
 
-  const isFormValid = email.length > 0 && password.length > 0;
+  const isFormValid = email.length > 0 && password.length > 0 && acceptedTerms;
 
   const handleLogin = async () => {
     try {
@@ -119,6 +124,23 @@ export default function LoginScreen() {
           >
             <Text className="text-white/60 font-medium">Esqueceu a senha?</Text>
           </TouchableOpacity>
+
+          {/* Terms & Conditions Checkbox */}
+          <View className="flex-row items-center mt-2">
+            <TouchableOpacity onPress={() => setAcceptedTerms(!acceptedTerms)} className="mr-3">
+              <Feather
+                name={acceptedTerms ? 'check-square' : 'square'}
+                size={22}
+                color={acceptedTerms ? '#E05500' : 'rgba(255,255,255,0.5)'}
+              />
+            </TouchableOpacity>
+            <View className="flex-1 flex-row flex-wrap">
+              <Text className="text-white/60 text-sm">Li e aceito os </Text>
+              <TouchableOpacity onPress={() => setShowTermsModal(true)}>
+                <Text className="text-[#E05500] font-bold text-sm">Termos de Uso</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Login Button */}
@@ -134,6 +156,44 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Terms of Use Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showTermsModal}
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View className="flex-1 justify-center bg-black/80 px-5">
+          <View className="bg-[#1C0505] rounded-[32px] p-7 border border-[#3D1010] max-h-[80%]">
+            <Text className="text-white text-3xl font-bold mb-4">Termos de Uso</Text>
+            <ScrollView className="mb-6">
+              <Text className="text-white/80 leading-7 text-base">
+                {TERMS_TEXT}
+              </Text>
+            </ScrollView>
+            
+            <View className="flex-row justify-end space-x-4 gap-4">
+              <TouchableOpacity
+                onPress={() => setShowTermsModal(false)}
+                className="py-3 px-6 rounded-2xl bg-[#3D1010]"
+              >
+                <Text className="text-white font-medium text-base">Fechar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={() => {
+                  setAcceptedTerms(true);
+                  setShowTermsModal(false);
+                }}
+                className="py-3 px-6 rounded-2xl bg-[#E05500]"
+              >
+                <Text className="text-white font-bold text-base">Aceitar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
