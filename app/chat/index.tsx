@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator } 
 import { router } from 'expo-router';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useGetClientConversations } from '@/syncdesk-library/dist/live_chat/hooks/useLiveChat';
+import { useGetClientConversations } from '@titus-system/syncdesk/src/live_chat/hooks/useLiveChat';
 
 export default function SupportScreen() {
   const { user } = useAuth();

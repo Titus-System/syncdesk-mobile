@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'reac
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useLogin, useGetMe, UserWithRoles } from '@/syncdesk-library/src';
+import { useLogin, useGetMe, UserWithRoles } from '@titus-system/syncdesk/src';
 
 export default function LoginScreen() {
   const router = useRouter();

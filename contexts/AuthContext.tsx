@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import { UserWithRoles } from '@/syncdesk-library/src';
+import { UserWithRoles } from '@titus-system/syncdesk/src';
 
 type AuthContextType = {
   user: UserWithRoles | null;

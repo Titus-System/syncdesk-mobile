@@ -4,7 +4,7 @@ import '../global.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 
-import { configureLibrary } from '@/syncdesk-library/src';
+import { configureLibrary } from '@titus-system/syncdesk/src';
 import * as SecureStore from 'expo-secure-store';
 import * as Linking from 'expo-linking';
 
