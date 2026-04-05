@@ -32,8 +32,15 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     try {
-      // 1. faz login (lib cuida do token internamente na _layout)
-      await login({ email, password });
+      // 1. faz login e salva os tokens
+      const result: any = await login({ email, password });
+      if (Platform.OS === 'web') {
+        localStorage.setItem('access_token', result?.access_token || '');
+        localStorage.setItem('refresh_token', result?.refresh_token || '');
+      } else if (result?.access_token && result?.refresh_token) {
+        await SecureStore.setItemAsync('access_token', result.access_token);
+        await SecureStore.setItemAsync('refresh_token', result.refresh_token);
+      }
 
       // [INSERIDO PELO TESTE]: Limpa sujeira antiga do queryClient para Web & Mobile
       // Previne loop de redirecionamento caso o cache antigo ainda tenha erros
