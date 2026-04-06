@@ -8,7 +8,7 @@ export default function Toolbar() {
   let title = 'App';
   if (pathname === '/') {
     title = 'SyncDesk';
-  } else if (pathname === '/support') {
+  } else if (pathname === '/chat') {
     title = 'Atendimentos';
   } else if (pathname === '/profile') {
     title = 'Perfil';
