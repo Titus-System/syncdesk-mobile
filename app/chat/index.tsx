@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import { router } from 'expo-router';
-import { FontAwesome6, FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome6, FontAwesome5, Entypo } from '@expo/vector-icons';
 import Toolbar from '@/components/Toolbar';
 import BottomAppBar from '@/components/BottomAppBar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,6 +87,11 @@ export default function SupportScreen() {
             </View>
           </View>
         </View>
+        <TouchableOpacity className='px-6 py-2 rounded-full justify-center items-center mt-[20vh] ml-[75vw]'>
+          <View className="bg-[#D34008] w-20 h-20 rounded-[40px] items-center justify-center">
+            <Entypo name="plus" size={45} color="white" />
+          </View>
+        </TouchableOpacity>
       </ScrollView>
       <BottomAppBar />
     </View>
