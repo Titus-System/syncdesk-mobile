@@ -1,6 +1,6 @@
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Octicons, FontAwesome6, Ionicons } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
+import { TouchableOpacity, View } from 'react-native';
 
 export default function BottomAppBar() {
   const pathname = usePathname();

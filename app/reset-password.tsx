@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -9,6 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import { apiFetch } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
 
 function Requirement({ met, label }: { met: boolean; label: string }) {
   return (
@@ -24,9 +27,15 @@ function Requirement({ met, label }: { met: boolean; label: string }) {
 }
 
 export default function NewPasswordScreen() {
-  const { token } = useLocalSearchParams<{ token: string }>();             //
-  // Para fins de simplificação na tela final, removemos o state de email
-  // da new-password (a request precisa apenas do token e new_password).
+  const params = useLocalSearchParams<{ token?: string | string[] }>();
+  const token = useMemo(() => {
+    if (Array.isArray(params.token)) {
+      return params.token[0];
+    }
+
+    return params.token;
+  }, [params.token]);
+
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,27 +48,26 @@ export default function NewPasswordScreen() {
 
   const handleResetPassword = async () => {
     if (!isValid || !token) {
-      setErrorMsg("Token de recuperação malformado ou não preenchido.");
+      setErrorMsg('Token de recuperação malformado ou não preenchido.');
       return;
     }
-    
+
     setIsLoading(true);
     setErrorMsg('');
 
     try {
-      const response = await fetch('http://api.syncdesk.pro:8000/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, new_password: password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha ao redefinir a senha. O token expirou ou é inválido.');
-      }
+      await apiFetch(
+        '/auth/reset-password',
+        {
+          method: 'POST',
+          body: JSON.stringify({ token, new_password: password }),
+        },
+        false,
+      );
 
       router.replace('/password-success');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Ocorreu um erro ao atualizar a senha.');
+    } catch (error: unknown) {
+      setErrorMsg(getErrorMessage(error, 'Ocorreu um erro ao atualizar a senha.'));
     } finally {
       setIsLoading(false);
     }
@@ -71,12 +79,10 @@ export default function NewPasswordScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1 px-6 pt-14 gap-8">
-        {/* Back */}
         <TouchableOpacity onPress={() => router.back()} className="self-start">
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
 
-        {/* Icon + Header */}
         <View className="items-center gap-4">
           <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
           <Text className="text-white text-3xl font-bold text-center">Criar nova senha</Text>
@@ -85,9 +91,7 @@ export default function NewPasswordScreen() {
           </Text>
         </View>
 
-        {/* Form */}
         <View className="gap-4">
-          {/* Note: Removed email field from layout, it's not needed for the finalize reset step */}
           <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
             <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
             <TextInput
@@ -98,8 +102,10 @@ export default function NewPasswordScreen() {
               value={password}
               onChangeText={setPassword}
               editable={!isLoading}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} disabled={isLoading}>
               <Feather
                 name={showPassword ? 'eye-off' : 'eye'}
                 size={20}
@@ -108,19 +114,18 @@ export default function NewPasswordScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Requirements */}
           <View className="gap-2 px-1">
             <Requirement met={hasMinLength} label="Mínimo de 8 caracteres" />
             <Requirement met={hasUppercase} label="Pelo menos uma letra maiúscula" />
             <Requirement met={hasNumberOrSymbol} label="Pelo menos um número ou símbolo" />
           </View>
 
-          {errorMsg ? (
-            <Text className="text-red-400 text-sm text-center">{errorMsg}</Text>
-          ) : null}
+          {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
 
           <TouchableOpacity
-            className={`rounded-2xl py-4 items-center ${isValid && !isLoading ? 'bg-[#E05500]' : 'bg-[#3D1010]'}`}
+            className={`rounded-2xl py-4 items-center ${
+              isValid && !isLoading ? 'bg-[#E05500]' : 'bg-[#3D1010]'
+            }`}
             disabled={!isValid || isLoading}
             onPress={handleResetPassword}
           >
