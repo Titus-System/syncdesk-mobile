@@ -1,24 +1,35 @@
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Modal,
-  ScrollView,
 } from 'react-native';
-import { router } from 'expo-router';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
-import * as SecureStore from 'expo-secure-store';
 
-// [INTEGRAÇÃO]: Mantido o authContext e biblioteca oficial do repositório
+import { TERMS_TEXT } from '@/constants/terms';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLogin, useGetMe } from '@titus-system/syncdesk/src';
-import { TERMS_TEXT } from '@/constants/terms'; //Termos de uso (constants/terms.ts)
+import { getErrorMessage } from '@/lib/errors';
+import { useGetMe, useLogin } from '@titus-system/syncdesk';
+
+type AuthUser = Exclude<Parameters<ReturnType<typeof useAuth>['setUser']>[0], null>;
+
+type LoginResponse = {
+  access_token: string;
+  refresh_token: string;
+};
+
+type RefetchMeResponse = {
+  data?: AuthUser;
+  error?: unknown;
+};
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -26,45 +37,59 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // [INTEGRAÇÃO]: Hooks originais mantidos
   const { setUser } = useAuth();
   const { mutateAsync: login, isPending } = useLogin();
   const { refetch: refetchMe } = useGetMe();
-  const queryClient = useQueryClient();
 
-  const isFormValid = email.length > 0 && password.length > 0 && acceptedTerms;
+  const isFormValid = email.trim().length > 0 && password.length > 0 && acceptedTerms;
 
-  const handleLogin = async () => {
-    try {
-      // 1. faz login e salva os tokens
-      const result: any = await login({ email, password });
-      if (Platform.OS === 'web') {
-        localStorage.setItem('access_token', result?.access_token || '');
-        localStorage.setItem('refresh_token', result?.refresh_token || '');
-      } else if (result?.access_token && result?.refresh_token) {
-        await SecureStore.setItemAsync('access_token', result.access_token);
-        await SecureStore.setItemAsync('refresh_token', result.refresh_token);
-      }
-
-      // [INSERIDO PELO TESTE]: Limpa sujeira antiga do queryClient para Web & Mobile
-      // Previne loop de redirecionamento caso o cache antigo ainda tenha erros
-      queryClient.clear();
-
-      // 2. busca dados do usuário original do time
-      const response = await refetchMe();
-
-      // 3. salva no contexto original
-      if (response.data) {
-        setUser(response.data);
-      }
-
-      // 4. redireciona sem erros (agora o Token é válido e salvo inclusive na Web via _layout)
-      router.replace('/');
-    } catch (error) {
-      alert('Erro ao fazer login. Verifique suas credenciais.');
+  async function saveTokens(accessToken: string, refreshToken: string) {
+    if (Platform.OS === 'web') {
+      globalThis.localStorage?.setItem('access_token', accessToken);
+      globalThis.localStorage?.setItem('refresh_token', refreshToken);
+      return;
     }
-  };
+
+    await SecureStore.setItemAsync('access_token', accessToken);
+    await SecureStore.setItemAsync('refresh_token', refreshToken);
+  }
+
+  async function handleLogin() {
+    setErrorMsg('');
+
+    try {
+      const result = (await login({
+        email: email.trim().toLowerCase(),
+        password,
+      })) as LoginResponse;
+
+      const accessToken = result.access_token;
+      const refreshToken = result.refresh_token;
+
+      if (!accessToken || !refreshToken) {
+        throw new Error('Erro ao fazer login. Verifique suas credenciais.');
+      }
+
+      await saveTokens(accessToken, refreshToken);
+
+      const response = (await refetchMe()) as RefetchMeResponse;
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      if (!response.data) {
+        throw new Error('Não foi possível carregar os dados do usuário.');
+      }
+
+      setUser(response.data);
+      router.replace('/');
+    } catch (error: unknown) {
+      setErrorMsg(getErrorMessage(error, 'Erro ao fazer login. Verifique suas credenciais.'));
+    }
+  }
 
   return (
     <KeyboardAvoidingView
@@ -72,16 +97,13 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1 justify-center px-6">
-        {/* Header Section */}
         <View className="items-center mb-12">
           <MaterialCommunityIcons name="layers" size={80} color="#E05500" />
           <Text className="text-white text-4xl font-bold mt-4">SyncDesk</Text>
           <Text className="text-white/60 text-base mt-2">Bem-vindo de volta!</Text>
         </View>
 
-        {/* Input Section */}
         <View className="gap-4">
-          {/* Email Input */}
           <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
             <Feather name="mail" size={20} color="rgba(255,255,255,0.5)" />
             <TextInput
@@ -90,13 +112,13 @@ export default function LoginScreen() {
               placeholderTextColor="rgba(255,255,255,0.4)"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               value={email}
               onChangeText={setEmail}
               editable={!isPending}
             />
           </View>
 
-          {/* Password Input */}
           <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
             <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
             <TextInput
@@ -107,8 +129,10 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               editable={!isPending}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity disabled={isPending} onPress={() => setShowPassword((prev) => !prev)}>
               <Feather
                 name={showPassword ? 'eye-off' : 'eye'}
                 size={20}
@@ -117,17 +141,20 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Forgot Password Link - [INSERIDO PELO TESTE] Rota de redefinição instalada aqui */}
           <TouchableOpacity
             className="self-end mt-2"
+            disabled={isPending}
             onPress={() => router.push('/forgot-password')}
           >
             <Text className="text-white/60 font-medium">Esqueceu a senha?</Text>
           </TouchableOpacity>
 
-          {/* Terms & Conditions Checkbox */}
           <View className="flex-row items-center mt-2">
-            <TouchableOpacity onPress={() => setAcceptedTerms(!acceptedTerms)} className="mr-3">
+            <TouchableOpacity
+              disabled={isPending}
+              onPress={() => setAcceptedTerms((prev) => !prev)}
+              className="mr-3"
+            >
               <Feather
                 name={acceptedTerms ? 'check-square' : 'square'}
                 size={22}
@@ -136,16 +163,19 @@ export default function LoginScreen() {
             </TouchableOpacity>
             <View className="flex-1 flex-row flex-wrap">
               <Text className="text-white/60 text-sm">Li e aceito os </Text>
-              <TouchableOpacity onPress={() => setShowTermsModal(true)}>
+              <TouchableOpacity disabled={isPending} onPress={() => setShowTermsModal(true)}>
                 <Text className="text-[#E05500] font-bold text-sm">Termos de Uso</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
         </View>
 
-        {/* Login Button */}
         <TouchableOpacity
-          className={`rounded-2xl py-4 items-center mt-8 ${isFormValid && !isPending ? 'bg-[#E05500]' : 'bg-[#3D1010]'}`}
+          className={`rounded-2xl py-4 items-center mt-8 ${
+            isFormValid && !isPending ? 'bg-[#E05500]' : 'bg-[#3D1010]'
+          }`}
           disabled={!isFormValid || isPending}
           onPress={handleLogin}
         >
@@ -157,10 +187,9 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Terms of Use Modal */}
       <Modal
         animationType="fade"
-        transparent={true}
+        transparent
         visible={showTermsModal}
         onRequestClose={() => setShowTermsModal(false)}
       >
@@ -168,19 +197,17 @@ export default function LoginScreen() {
           <View className="bg-[#1C0505] rounded-[32px] p-7 border border-[#3D1010] max-h-[80%]">
             <Text className="text-white text-3xl font-bold mb-4">Termos de Uso</Text>
             <ScrollView className="mb-6">
-              <Text className="text-white/80 leading-7 text-base">
-                {TERMS_TEXT}
-              </Text>
+              <Text className="text-white/80 leading-7 text-base">{TERMS_TEXT}</Text>
             </ScrollView>
-            
-            <View className="flex-row justify-end space-x-4 gap-4">
+
+            <View className="flex-row justify-end gap-4">
               <TouchableOpacity
                 onPress={() => setShowTermsModal(false)}
                 className="py-3 px-6 rounded-2xl bg-[#3D1010]"
               >
                 <Text className="text-white font-medium text-base">Fechar</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 onPress={() => {
                   setAcceptedTerms(true);

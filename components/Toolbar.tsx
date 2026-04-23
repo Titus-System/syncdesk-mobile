@@ -1,14 +1,15 @@
-import { View, Text, TouchableOpacity } from 'react-native';
 import { AntDesign, Entypo } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 export default function Toolbar() {
   const pathname = usePathname();
 
-  let title = 'App';
+  let title = 'SyncDesk';
+
   if (pathname === '/') {
     title = 'SyncDesk';
-  } else if (pathname === '/chat') {
+  } else if (pathname.startsWith('/chat')) {
     title = 'Atendimentos';
   } else if (pathname === '/profile') {
     title = 'Perfil';

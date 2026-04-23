@@ -10,6 +10,9 @@ import {
   View,
 } from 'react-native';
 
+import { apiFetch } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
+
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -17,24 +20,26 @@ export default function ForgotPasswordScreen() {
   const [success, setSuccess] = useState(false);
 
   const handleSendCode = async () => {
-    if (!email) return;
+    if (!email) {
+      return;
+    }
+
     setIsLoading(true);
     setErrorMsg('');
 
     try {
-      const response = await fetch('http://api.syncdesk.pro:8000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha ao enviar o código. Verifique se o e-mail está correto.');
-      }
+      await apiFetch(
+        '/auth/forgot-password',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        },
+        false,
+      );
 
       setSuccess(true);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Ocorreu um erro.');
+    } catch (error: unknown) {
+      setErrorMsg(getErrorMessage(error, 'Ocorreu um erro.'));
     } finally {
       setIsLoading(false);
     }
@@ -46,12 +51,10 @@ export default function ForgotPasswordScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1 px-6 pt-14 gap-8">
-        {/* Back */}
         <TouchableOpacity onPress={() => router.back()} className="self-start">
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
 
-        {/* Icon + Header */}
         <View className="items-center gap-4">
           <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
           <Text className="text-white text-3xl font-bold text-center">
@@ -64,7 +67,6 @@ export default function ForgotPasswordScreen() {
           </Text>
         </View>
 
-        {/* Form */}
         {!success && (
           <View className="gap-4">
             <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
@@ -81,9 +83,7 @@ export default function ForgotPasswordScreen() {
               />
             </View>
 
-            {errorMsg ? (
-              <Text className="text-red-400 text-sm text-center">{errorMsg}</Text>
-            ) : null}
+            {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
 
             <TouchableOpacity
               className="bg-[#E05500] rounded-2xl py-4 items-center"
