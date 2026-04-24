@@ -17,7 +17,8 @@ configureLibrary({
       return localStorage.getItem('access_token');
     }
 
-    return await SecureStore.getItemAsync('access_token');
+    const token = await SecureStore.getItemAsync('access_token');
+    return token;
   },
 
   getRefreshToken: async () => {

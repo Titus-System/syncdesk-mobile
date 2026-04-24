@@ -74,6 +74,8 @@ export default function LoginScreen() {
 
       await saveTokens(accessToken, refreshToken);
 
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       const response = (await refetchMe()) as RefetchMeResponse;
 
       if (response.error) {
