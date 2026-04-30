@@ -11,6 +11,8 @@ export default function Toolbar() {
     title = 'SyncDesk';
   } else if (pathname.startsWith('/chat')) {
     title = 'Atendimentos';
+  } else if (pathname.startsWith('/tickets')) {
+    title = 'Solicitações';
   } else if (pathname === '/profile') {
     title = 'Perfil';
   }
