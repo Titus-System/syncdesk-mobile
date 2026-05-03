@@ -2,76 +2,227 @@ import BottomAppBar from '@/components/BottomAppBar';
 import Toolbar from '@/components/Toolbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesome, FontAwesome6, MaterialIcons } from '@expo/vector-icons';
-import type { TicketResponse } from '@titus-system/syncdesk';
+import type { TicketResponse, TicketStatus, TicketCriticality } from '@titus-system/syncdesk';
 import { useTickets } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api';
 
-type TicketFilter = 'all' | 'new_feature' | 'issue' | 'access';
+type Comment = {
+  comment_id: string;
+  author: string;
+  text: string;
+  date: string;
+  internal: boolean;
+};
 
-const FILTERS: { value: TicketFilter; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'new_feature', label: 'Nova funcionalidade' },
-  { value: 'issue', label: 'Falha' },
-  { value: 'access', label: 'Liberação de acesso' },
-];
+type QueueItem = {
+  id: string;
+};
+
+type QueueResponse = {
+  items: QueueItem[];
+  page: number;
+  page_size: number;
+  total: number;
+};
+
+async function fetchQueue(): Promise<QueueResponse> {
+  return apiFetch<QueueResponse>(
+    '/tickets/queue?status=awaiting_assignment&unassigned_only=true&page_size=100',
+  );
+}
+
+async function searchTickets(query: string) {
+  const params = new URLSearchParams({
+    search_query: query,
+  });
+
+  return apiFetch<TicketResponse[]>(`/tickets/search?${params.toString()}`);
+}
 
 export default function TicketsScreen() {
   const { user } = useAuth();
 
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<TicketFilter>('all');
 
-  const { data, isLoading, isError } = useTickets(user?.id ? { client_id: user.id } : {});
+  function getTicketCriticalityLabel(criticality?: string | null) {
+    switch (String(criticality ?? '').toLowerCase()) {
+      case 'high':
+        return 'Alta';
+      case 'medium':
+        return 'Média';
+      case 'low':
+        return 'Baixa';
+      case 'critical':
+        return 'Crítica';
+      default:
+        return criticality || 'Não informada';
+    }
+  }
 
-  const tickets = useMemo(() => {
-    return normalizeTicketsResponse(data);
-  }, [data]);
+  function getTicketStatusLabel(status?: string | null) {
+    switch (String(status ?? '').toLowerCase()) {
+      case 'open':
+        return 'Aberto';
+      case 'awaiting_assignment':
+        return 'Aguardando atendente';
+      case 'assigned':
+        return 'Atribuído';
+      case 'in_progress':
+        return 'Em andamento';
+      case 'waiting_for_customer':
+      case 'waiting_customer':
+        return 'Aguardando cliente';
+      case 'waiting_for_provider':
+        return 'Aguardando provedor';
+      case 'waiting_for_validation':
+        return 'Aguardando validação';
+      case 'resolved':
+        return 'Resolvido';
+      case 'closed':
+        return 'Fechado';
+      case 'finished':
+        return 'Finalizado';
+      case 'cancelled':
+        return 'Cancelado';
+      default:
+        return status || 'Sem status';
+    }
+  }
 
-  const filteredTickets = useMemo(() => {
-    const normalizedSearch = normalizeText(search);
+  const [selectedStatus, setSelectedStatus] = useState<TicketStatus | undefined>(undefined);
+  const [selectedCriticality, setSelectedCriticality] = useState<TicketCriticality | undefined>(
+    undefined,
+  );
+  const [openDropdown, setOpenDropdown] = useState<'criticality' | 'status' | null>(null);
+  const criticalityOptions: { label: string; value: TicketCriticality }[] = [
+    { label: 'Alta', value: 'high' },
+    { label: 'Média', value: 'medium' },
+    { label: 'Baixa', value: 'low' },
+  ];
 
-    return tickets
-      .filter((ticket) => {
-        if (selectedFilter === 'all') {
-          return true;
-        }
+  const statusOptions: { label: string; value: TicketStatus }[] = [
+    { label: 'Aberto', value: 'open' },
+    { label: 'Aguardando atendente', value: 'awaiting_assignment' },
+    { label: 'Em andamento', value: 'in_progress' },
+    { label: 'Aguardando provedor', value: 'waiting_for_provider' },
+    { label: 'Aguardando validação', value: 'waiting_for_validation' },
+    { label: 'Finalizado', value: 'finished' },
+  ];
 
-        return String(ticket.type ?? '').toLowerCase() === selectedFilter;
-      })
-      .filter((ticket) => {
-        if (!normalizedSearch) {
-          return true;
-        }
+  const filters = user?.id
+    ? {
+        client_id: user.id,
+        ...(selectedCriticality && { criticality: selectedCriticality }),
+        ...(selectedStatus && { status: selectedStatus }),
+      }
+    : undefined;
 
-        return normalizeText(
-          [
-            ticket.id,
-            ticket.product,
-            ticket.description,
-            ticket.type,
-            ticket.status,
-            ticket.criticality,
-            getTicketTitle(ticket),
-            getTicketTypeLabel(ticket.type),
-            getTicketStatusLabel(ticket.status),
-            getTicketCriticalityLabel(ticket.criticality),
-          ].join(' '),
-        ).includes(normalizedSearch);
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.creation_date ?? 0).getTime();
-        const dateB = new Date(b.creation_date ?? 0).getTime();
+  const { data, isLoading } = useTickets(filters);
 
-        return dateB - dateA;
-      });
-  }, [tickets, search, selectedFilter]);
+  const { data: queueData } = useQuery({
+    queryKey: ['ticketQueue'],
+    queryFn: fetchQueue,
+  });
+
+  const queuePositions = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    queueData?.items?.forEach((item, index) => {
+      map[item.id] = index + 1;
+    });
+
+    return map;
+  }, [queueData]);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  const isSearchActive = debouncedQuery.length > 0;
+
+  const { data: searchData, isLoading: isSearching } = useQuery({
+    queryKey: ['ticketSearch', debouncedQuery, selectedStatus, selectedCriticality],
+    queryFn: () => searchTickets(debouncedQuery),
+    enabled: debouncedQuery.length > 0,
+  });
+
+  const defaultTickets: TicketResponse[] = Array.isArray(data) ? data : (data?.items ?? []);
+
+  const ticketsBase = isSearchActive ? (searchData ?? []) : defaultTickets;
+
+  const tickets = ticketsBase
+    .filter((ticket) => {
+      if (selectedStatus && ticket.status !== selectedStatus) {
+        return false;
+      }
+
+      if (selectedCriticality && ticket.criticality !== selectedCriticality) {
+        return false;
+      }
+
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      const dateA = new Date(a.creation_date).getTime();
+      const dateB = new Date(b.creation_date).getTime();
+
+      return dateB - dateA;
+    });
 
   const toggleTicket = (ticketId: string) => {
     setOpenTicketId((current) => (current === ticketId ? null : ticketId));
   };
+
+  function getTicketTitle(ticket: TicketResponse) {
+    if (ticket.type === 'access') {
+      return 'Liberação de Acesso';
+    }
+
+    return `${ticket.product ?? 'Sem produto'} - ${getTicketTypeLabel(ticket.type)}`;
+  }
+
+  function getTicketTypeLabel(type?: string | null) {
+    switch (String(type ?? '').toLowerCase()) {
+      case 'issue':
+        return 'Falha';
+      case 'new_feature':
+        return 'Nova funcionalidade';
+      case 'access':
+        return 'Liberação de acesso';
+      case 'request':
+        return 'Solicitação';
+      default:
+        return type || 'Tipo não informado';
+    }
+  }
+
+  function renderTicketIcon(type: string) {
+    switch (type) {
+      case 'access':
+        return <FontAwesome6 name="universal-access" size={36} color="white" />;
+
+      case 'issue':
+        return <FontAwesome6 name="circle-exclamation" size={36} color="white" />;
+
+      case 'new_feature':
+        return <FontAwesome name="question-circle" size={36} color="white" />;
+
+      default:
+        return <FontAwesome name="question-circle" size={36} color="white" />;
+    }
+  }
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   return (
     <View className="flex-1 bg-[#F4EAD9]">
@@ -81,8 +232,10 @@ export default function TicketsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingTop: 140,
-          paddingBottom: 120,
+          paddingTop: 131,
+          paddingBottom: 131,
+          display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
         }}
       >
@@ -90,12 +243,11 @@ export default function TicketsScreen() {
           <FontAwesome6 name="magnifying-glass" size={22} color="#9F7065" />
 
           <TextInput
-            value={search}
-            onChangeText={setSearch}
             placeholder="Pesquise para encontrar o que deseja"
             placeholderTextColor="#9F7065"
-            returnKeyType="search"
             className="flex-1 ml-2 text-[#500D0D]"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
             style={{
               backgroundColor: 'transparent',
               paddingVertical: 10,
@@ -103,54 +255,98 @@ export default function TicketsScreen() {
             }}
           />
 
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} className="pl-2">
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} className="pl-2">
               <MaterialIcons name="close" size={22} color="#9F7065" />
             </TouchableOpacity>
           )}
         </View>
+        <View className="flex flex-row items-center gap-2 w-[94%] mb-4">
+          {/* DROPDOWN CRITICALITY */}
+          <View className="flex-1">
+            <TouchableOpacity
+              onPress={() => setOpenDropdown(openDropdown === 'criticality' ? null : 'criticality')}
+              className="bg-[#ECD0BB] px-3 py-2 rounded-lg"
+            >
+              <Text className="text-[#9F7065]">
+                {selectedCriticality
+                  ? criticalityOptions.find((o) => o.value === selectedCriticality)?.label
+                  : 'Criticidade'}
+              </Text>
+            </TouchableOpacity>
 
-        <View className="w-[94%] mb-5">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 10, paddingRight: 12 }}
-          >
-            {FILTERS.map((filter) => {
-              const isSelected = selectedFilter === filter.value;
-
-              return (
-                <TouchableOpacity
-                  key={filter.value}
-                  onPress={() => setSelectedFilter(filter.value)}
-                  className={`px-4 py-2 rounded-full border ${
-                    isSelected ? 'bg-[#D34008] border-[#D34008]' : 'bg-white border-[#ECD0BB]'
-                  }`}
-                >
-                  <Text
-                    className={`font-bold text-sm ${isSelected ? 'text-white' : 'text-[#83524F]'}`}
+            {openDropdown === 'criticality' && (
+              <View className="bg-white mt-1 rounded-lg shadow">
+                {criticalityOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    onPress={() => {
+                      setSelectedCriticality(option.value);
+                      setOpenDropdown(null);
+                    }}
+                    className="px-3 py-2"
                   >
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+                    <Text>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
 
-        {isLoading ? (
+          {/* DROPDOWN STATUS */}
+          <View className="flex-1">
+            <TouchableOpacity
+              onPress={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
+              className="bg-[#ECD0BB] px-3 py-2 rounded-lg"
+            >
+              <Text className="text-[#9F7065]">
+                {selectedStatus
+                  ? statusOptions.find((o) => o.value === selectedStatus)?.label
+                  : 'Status'}
+              </Text>
+            </TouchableOpacity>
+
+            {openDropdown === 'status' && (
+              <View className="bg-white mt-1 rounded-lg shadow">
+                {statusOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    onPress={() => {
+                      setSelectedStatus(option.value);
+                      setOpenDropdown(null);
+                    }}
+                    className="px-3 py-2"
+                  >
+                    <Text>{option.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* LIMPAR FILTROS */}
+          {(selectedCriticality || selectedStatus) && (
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedCriticality(undefined);
+                setSelectedStatus(undefined);
+              }}
+              className="bg-red-100 px-3 py-2 rounded-lg"
+            >
+              <Text className="text-red-600">✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {isLoading || isSearching ? (
           <Text className="text-[#6B7280] mt-10">Carregando tickets...</Text>
-        ) : isError ? (
-          <Text className="text-[#D34008] mt-10 font-bold">
-            Não foi possível carregar os tickets.
-          </Text>
-        ) : filteredTickets.length === 0 ? (
-          <Text className="text-[#6B7280] mt-10">
-            Nenhum ticket encontrado para os filtros selecionados.
-          </Text>
+        ) : tickets.length === 0 && debouncedQuery.length > 0 ? (
+          <Text className="text-[#6B7280] mt-10">Nenhum resultado encontrado para sua busca.</Text>
+        ) : tickets.length === 0 ? (
+          <Text className="text-[#6B7280] mt-10">Nenhum ticket encontrado.</Text>
         ) : (
-          filteredTickets.map((ticket) => {
+          tickets.map((ticket: TicketResponse) => {
             const isOpen = openTicketId === ticket.id;
+            const visibleComments = (ticket.comments ?? []).filter((c: Comment) => !c.internal);
 
             return (
               <View key={ticket.id} className="bg-white px-4 py-5 w-[94%] mb-4 rounded-2xl">
@@ -194,31 +390,94 @@ export default function TicketsScreen() {
                       {ticket.description || 'Sem descrição disponível.'}
                     </Text>
 
-                    <View className="mb-5 gap-2">
-                      <TicketInfo
-                        label="Produto/Serviço"
-                        value={ticket.product || 'Não informado'}
-                      />
-                      <TicketInfo label="Tipo" value={getTicketTypeLabel(ticket.type)} />
-                      <TicketInfo label="Status" value={getTicketStatusLabel(ticket.status)} />
-                      <TicketInfo
-                        label="Criticidade"
-                        value={getTicketCriticalityLabel(ticket.criticality)}
-                      />
-                      <TicketInfo
-                        label="Data de início"
-                        value={formatTicketDate(ticket.creation_date)}
-                      />
+                    <View className="mb-5">
+                      <View className="flex flex-row">
+                        <Text className="font-bold text-[#6B7280] text-sm">Produto/Serviço: </Text>
+                        <Text className="text-[#6B7280] text-sm">
+                          {ticket.product || 'Não informado'}
+                        </Text>
+                      </View>
+
+                      <View className="flex flex-row">
+                        <Text className="font-bold text-[#6B7280] text-sm">Status: </Text>
+                        <Text className="text-[#6B7280] text-sm">
+                          {getTicketStatusLabel(ticket.status)}
+                        </Text>
+                      </View>
+
+                      {ticket.status === 'awaiting_assignment' &&
+                        (queueData?.items?.length ?? 0) > 0 && (
+                          <View className="flex flex-row">
+                            <Text className="font-bold text-[#6B7280] text-sm">
+                              Posição na fila:{' '}
+                            </Text>
+                            <Text className="text-[#6B7280] text-sm">
+                              {queuePositions[ticket.id]
+                                ? `${queuePositions[ticket.id]}º`
+                                : 'Acima de 100º'}
+                            </Text>
+                          </View>
+                        )}
+
+                      <View className="flex flex-row">
+                        <Text className="font-bold text-[#6B7280] text-sm">Criticidade: </Text>
+                        <Text className="text-[#6B7280] text-sm">
+                          {getTicketCriticalityLabel(ticket.criticality)}
+                        </Text>
+                      </View>
+
+                      <View className="flex flex-row">
+                        <Text className="font-bold text-[#6B7280] text-sm">Data de início: </Text>
+                        <Text className="text-[#6B7280] text-sm">
+                          {new Date(ticket.creation_date + 'Z').toLocaleString('pt-BR', {
+                            timeZone: 'America/Sao_Paulo',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
+                      </View>
                     </View>
 
                     <View>
                       <Text className="font-bold text-[#6B7280] text-sm mb-1">
-                        Notas do atendente:
+                        Notas do chamado:
                       </Text>
 
-                      <Text className="text-[#A07167] bg-[#EDD0BC] rounded-lg text-sm p-3 leading-6">
-                        Nenhuma nota registrada.
-                      </Text>
+                      <View className="bg-[#ECD0BB] py-2 px-3 rounded-lg">
+                        {visibleComments.length === 0 ? (
+                          <Text className="text-[#A07167] text-sm leading-6">
+                            Nenhuma nota registrada.
+                          </Text>
+                        ) : (
+                          visibleComments.map((comment: Comment, index: number) => {
+                            const isLast = index === visibleComments.length - 1;
+
+                            return (
+                              <View key={comment.comment_id}>
+                                <Text className="text-[#A07167] text-sm leading-6">
+                                  <Text className="font-semibold">{comment.author}:</Text>{' '}
+                                  <Text>{comment.text}</Text>
+                                  {'\n'}
+                                  <Text className="text-[#b48f87] text-sm">
+                                    {new Date(comment.date + 'Z').toLocaleString('pt-BR', {
+                                      timeZone: 'America/Sao_Paulo',
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </Text>
+                                  {!isLast && '\n'}
+                                </Text>
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
                     </View>
 
                     <TouchableOpacity
@@ -241,150 +500,6 @@ export default function TicketsScreen() {
       <BottomAppBar />
     </View>
   );
-}
-
-function TicketInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row flex-wrap">
-      <Text className="font-bold text-[#6B7280] text-sm">{label}: </Text>
-      <Text className="text-[#6B7280] text-sm flex-shrink">{value}</Text>
-    </View>
-  );
-}
-
-function normalizeTicketsResponse(data: unknown): TicketResponse[] {
-  if (Array.isArray(data)) {
-    return data as TicketResponse[];
-  }
-
-  const payload = data as {
-    data?: TicketResponse[] | { items?: TicketResponse[] };
-    items?: TicketResponse[];
-  };
-
-  if (Array.isArray(payload?.items)) {
-    return payload.items;
-  }
-
-  if (Array.isArray(payload?.data)) {
-    return payload.data;
-  }
-
-  if (!Array.isArray(payload?.data?.items)) {
-    return [];
-  }
-
-  return payload.data.items;
-}
-
-function getTicketTitle(ticket: TicketResponse) {
-  if (ticket.type === 'access') {
-    return 'Liberação de Acesso';
-  }
-
-  return `${ticket.product ?? 'Sem produto'} - ${getTicketTypeLabel(ticket.type)}`;
-}
-
-function getTicketTypeLabel(type?: string | null) {
-  switch (String(type ?? '').toLowerCase()) {
-    case 'issue':
-      return 'Falha';
-    case 'new_feature':
-      return 'Nova funcionalidade';
-    case 'access':
-      return 'Liberação de acesso';
-    case 'request':
-      return 'Solicitação';
-    default:
-      return type || 'Tipo não informado';
-  }
-}
-
-function renderTicketIcon(type?: string | null) {
-  switch (String(type ?? '').toLowerCase()) {
-    case 'access':
-      return <FontAwesome6 name="universal-access" size={34} color="white" />;
-    case 'issue':
-      return <FontAwesome name="question-circle" size={36} color="white" />;
-    case 'new_feature':
-      return <FontAwesome6 name="circle-exclamation" size={34} color="white" />;
-    default:
-      return <FontAwesome name="question-circle" size={36} color="white" />;
-  }
-}
-
-function getTicketCriticalityLabel(criticality?: string | null) {
-  switch (String(criticality ?? '').toLowerCase()) {
-    case 'high':
-      return 'Alta';
-    case 'medium':
-      return 'Média';
-    case 'low':
-      return 'Baixa';
-    case 'critical':
-      return 'Crítica';
-    default:
-      return criticality || 'Não informada';
-  }
-}
-
-function getTicketStatusLabel(status?: string | null) {
-  switch (String(status ?? '').toLowerCase()) {
-    case 'open':
-      return 'Aberto';
-    case 'awaiting_assignment':
-      return 'Aguardando atendente';
-    case 'assigned':
-      return 'Atribuído';
-    case 'in_progress':
-      return 'Em andamento';
-    case 'waiting_for_customer':
-    case 'waiting_customer':
-      return 'Aguardando cliente';
-    case 'waiting_for_provider':
-      return 'Aguardando provedor';
-    case 'waiting_for_validation':
-      return 'Aguardando validação';
-    case 'resolved':
-      return 'Resolvido';
-    case 'closed':
-      return 'Fechado';
-    case 'finished':
-      return 'Finalizado';
-    case 'cancelled':
-      return 'Cancelado';
-    default:
-      return status || 'Sem status';
-  }
-}
-
-function formatTicketDate(rawDate?: string | null) {
-  if (!rawDate) {
-    return 'Não informada';
-  }
-
-  const safeDate = /z$|[+-]\d{2}:\d{2}$/i.test(rawDate) ? rawDate : `${rawDate}Z`;
-  const date = new Date(safeDate);
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Data inválida';
-  }
-
-  return date.toLocaleString('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function normalizeText(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
 }
 
 function openTicketConversation(ticket: TicketResponse) {

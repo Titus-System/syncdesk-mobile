@@ -1,8 +1,10 @@
-import { Feather, FontAwesome6 } from '@expo/vector-icons';
+import { Feather, FontAwesome6, Entypo } from '@expo/vector-icons';
 import { useGetMe } from '@titus-system/syncdesk';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import {
+  Modal,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -254,6 +256,10 @@ export default function ChatScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
 
+  const { id } = useLocalSearchParams();
+  const safeId: string | undefined =
+    typeof id === 'string' ? id : Array.isArray(id) ? id[0] : undefined;
+
   const triageId = useMemo(() => {
     if (params.triageId) return String(params.triageId);
     if (mode === 'triage') return String(params.id);
@@ -468,6 +474,8 @@ export default function ChatScreen() {
 
   const canSendHuman = connectionStatus === 'connected';
 
+  const [menuVisible, setMenuVisible] = useState(false);
+
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-[#F4EAD9]"
@@ -479,21 +487,29 @@ export default function ChatScreen() {
             <Feather name="arrow-left" size={24} color="white" />
           </TouchableOpacity>
 
-          <View>
-            <Text className="text-white font-bold text-2xl">Atendimento</Text>
-            <Text className="text-white/70 text-xs">
-              {mode === 'triage' ? 'Triagem automática' : 'URA + chat humano'}
-            </Text>
+          <View className="flex flex-row">
+            <View className="flex flex-row items-center justify-between w-[93%]">
+              <View className="flex flex-col ml-3">
+                <Text className="text-white font-bold text-2xl">Atendimento</Text>
+                <View className="flex flex-row items-center">
+                  {mode === 'human' && (
+                    <View className={`${connectionPresentation.bg} px-2 py-1 rounded-full`}>
+                      <Text className={`${connectionPresentation.text} font-bold text-xs`}>
+                        {connectionPresentation.label}
+                      </Text>
+                    </View>
+                  )}
+                  <Text className="text-white/70 text-xs ml-2">
+                    {mode === 'triage' ? 'Triagem automática' : 'URA + chat humano'}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setMenuVisible(true)}>
+                <Entypo name="dots-three-vertical" size={25} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-
-        {mode === 'human' && (
-          <View className={`${connectionPresentation.bg} px-3 py-1 rounded-full`}>
-            <Text className={`${connectionPresentation.text} font-bold text-xs`}>
-              {connectionPresentation.label}
-            </Text>
-          </View>
-        )}
       </View>
 
       <ScrollView
@@ -731,6 +747,31 @@ export default function ChatScreen() {
           </View>
         </View>
       )}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={menuVisible}
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/40 justify-start items-end"
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        >
+          <View className="bg-white mt-20 mr-4 rounded-xl p-3 w-56">
+            <TouchableOpacity
+              onPress={() => {
+                setMenuVisible(false);
+                if (!safeId || !ticketId) return;
+                router.push({ pathname: '/chat/[id]/agents', params: { id: safeId, ticketId } });
+              }}
+              className="py-3"
+            >
+              <Text className="text-[#1C0505] font-medium">Histórico de atendentes</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
