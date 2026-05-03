@@ -7,14 +7,15 @@ export type QuickReplyDto = {
 
 export type TriageInputDefDto = {
   mode: 'free_text' | 'quick_replies';
-  quick_replies?: QuickReplyDto[];
+  quick_replies?: QuickReplyDto[] | null;
 };
 
 export type TriageResultDto = {
   type: string;
-  id: string;
-  ticket_id?: string | null;
-  chat_id?: string | null;
+  id?: string | number | null;
+  closure_message?: string | null;
+  ticket_id?: string | number | null;
+  chat_id?: string | number | null;
 };
 
 export type TriageDataDto = {
@@ -34,6 +35,14 @@ export type AttendanceStepDto = {
   answer_text?: string | null;
 };
 
+export type AttendanceResultDto = {
+  type: string;
+  closure_message?: string | null;
+  id?: string | number | null;
+  ticket_id?: string | number | null;
+  chat_id?: string | number | null;
+};
+
 export type AttendanceResponseDto = {
   triage_id: string;
   status: string;
@@ -49,10 +58,7 @@ export type AttendanceResponseDto = {
     } | null;
   };
   triage: AttendanceStepDto[];
-  result?: {
-    type: string;
-    closure_message: string;
-  } | null;
+  result?: AttendanceResultDto | null;
   evaluation?: {
     rating: number;
   } | null;

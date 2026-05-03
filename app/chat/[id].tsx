@@ -1,7 +1,7 @@
 import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useGetMe } from '@titus-system/syncdesk';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,6 +47,8 @@ type CurrentInput = {
 };
 
 type AttendanceResult = {
+  type?: string | null;
+  id?: PrimitiveId | null;
   closure_message?: string | null;
   ticket_id?: PrimitiveId | null;
   chat_id?: PrimitiveId | null;
@@ -57,6 +59,8 @@ type AttendanceData = {
   current_message?: string | null;
   current_step_id?: string | null;
   triage_id?: PrimitiveId | null;
+  status?: string | null;
+  end_date?: string | null;
   current_input?: CurrentInput | null;
   result?: AttendanceResult | null;
 };
@@ -75,14 +79,15 @@ type SendTriagePayload = {
 };
 
 type SendTriageResponse = {
-  finished?: boolean;
+  finished?: boolean | null;
+  closure_message?: string | null;
   result?: AttendanceResult | null;
 };
 
 type AttendanceQueryShape = {
   data?: AttendanceData;
   isLoading: boolean;
-  refetch: () => Promise<unknown>;
+  refetch: () => Promise<{ data?: AttendanceData }>;
 };
 
 type SendTriageMutationShape = {
@@ -203,7 +208,9 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
     }
   }
 
-  if (attendance.current_message && attendance.current_step_id) {
+  const isFinished = attendance.status === 'finished' || Boolean(attendance.end_date);
+
+  if (!isFinished && attendance.current_message && attendance.current_step_id) {
     timeline.push({
       id: `triage-current-${attendance.current_step_id}`,
       kind: 'ura',
@@ -211,11 +218,13 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
     });
   }
 
-  if (attendance.result?.closure_message) {
+  const closureMessage = attendance.result?.closure_message;
+
+  if (closureMessage) {
     timeline.push({
       id: `triage-result-${String(attendance.triage_id ?? 'unknown')}`,
       kind: 'system',
-      content: attendance.result.closure_message,
+      content: closureMessage,
     });
   }
 
@@ -240,6 +249,8 @@ export default function ChatScreen() {
   const [mode, setMode] = useState<'human' | 'triage'>(
     params.mode === 'human' ? 'human' : 'triage',
   );
+  const [localTriageFinished, setLocalTriageFinished] = useState(false);
+  const [waitingForHumanChat, setWaitingForHumanChat] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -256,18 +267,7 @@ export default function ChatScreen() {
   }, [params.chatId, params.id, mode]);
 
   const ticketId = params.ticketId ? String(params.ticketId) : undefined;
-
   const currentUserId = useMemo(() => getSafeUserId(getMeQuery.data), [getMeQuery.data]);
-
-  useEffect(() => {
-    setMode(params.mode === 'human' ? 'human' : 'triage');
-  }, [params.mode]);
-
-  useEffect(() => {
-    if (getMeQuery.isError && !getMeQuery.isLoading) {
-      router.replace('/login');
-    }
-  }, [getMeQuery.isError, getMeQuery.isLoading]);
 
   const triageTimeline = useMemo(
     () => buildTriageTimeline(attendanceQuery.data),
@@ -276,6 +276,18 @@ export default function ChatScreen() {
 
   const currentInput = attendanceQuery.data?.current_input;
   const currentStepId = attendanceQuery.data?.current_step_id;
+
+  const isAttendanceFinished =
+    attendanceQuery.data?.status === 'finished' || Boolean(attendanceQuery.data?.end_date);
+
+  const isTriageFinished = localTriageFinished || isAttendanceFinished;
+
+  const canAnswerTriage =
+    mode === 'triage' &&
+    !isTriageFinished &&
+    Boolean(triageId) &&
+    Boolean(currentStepId) &&
+    Boolean(currentInput);
 
   const paginatedMessagesQuery = usePaginatedMessages(ticketId);
 
@@ -298,37 +310,102 @@ export default function ChatScreen() {
     [historyMessages, liveMessages],
   );
 
-  useEffect(() => {
-    scrollRef.current?.scrollToEnd({ animated: true });
-  }, [triageTimeline.length, humanMessages.length, mode]);
-
   const connectionPresentation = getConnectionLabel(connectionStatus);
 
-  const goToHumanMode = (result?: AttendanceResult | null) => {
-    if (!result?.ticket_id || !result?.chat_id || !triageId) {
-      return false;
+  const goToHumanMode = useCallback(
+    (result?: AttendanceResult | null) => {
+      if (!result?.ticket_id || !result?.chat_id || !triageId) {
+        return false;
+      }
+
+      const nextTicketId = String(result.ticket_id);
+      const nextChatId = String(result.chat_id);
+
+      setMode('human');
+      setWaitingForHumanChat(false);
+      setLocalTriageFinished(true);
+
+      router.replace({
+        pathname: '/chat/[id]',
+        params: {
+          id: nextChatId,
+          mode: 'human',
+          triageId,
+          ticketId: nextTicketId,
+          chatId: nextChatId,
+        },
+      });
+
+      return true;
+    },
+    [triageId],
+  );
+
+  useEffect(() => {
+    setMode(params.mode === 'human' ? 'human' : 'triage');
+  }, [params.mode]);
+
+  useEffect(() => {
+    setLocalTriageFinished(false);
+    setWaitingForHumanChat(false);
+  }, [triageId]);
+
+  useEffect(() => {
+    if (getMeQuery.isError && !getMeQuery.isLoading) {
+      router.replace('/login');
+    }
+  }, [getMeQuery.isError, getMeQuery.isLoading]);
+
+  useEffect(() => {
+    if (mode !== 'triage') {
+      return;
     }
 
-    setMode('human');
+    const result = attendanceQuery.data?.result;
 
-    router.replace({
-      pathname: '/chat/[id]',
-      params: {
-        id: triageId,
-        mode: 'human',
-        triageId,
-        ticketId: String(result.ticket_id),
-        chatId: String(result.chat_id),
-      },
-    });
+    if (result?.type === 'Ticket' && result.ticket_id && result.chat_id) {
+      goToHumanMode(result);
+    }
+  }, [
+    attendanceQuery.data?.result?.type,
+    attendanceQuery.data?.result?.ticket_id,
+    attendanceQuery.data?.result?.chat_id,
+    goToHumanMode,
+    mode,
+  ]);
 
-    return true;
+  useEffect(() => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, [triageTimeline.length, humanMessages.length, mode, waitingForHumanChat]);
+
+  const handleFinishedTriage = async (response: SendTriageResponse) => {
+    setLocalTriageFinished(true);
+
+    const isTicketResult = response.result?.type === 'Ticket';
+
+    if (isTicketResult) {
+      setWaitingForHumanChat(true);
+    }
+
+    if (goToHumanMode(response.result)) {
+      return;
+    }
+
+    const refreshed = await attendanceQuery.refetch();
+
+    if (goToHumanMode(refreshed.data?.result)) {
+      return;
+    }
+
+    if (!isTicketResult) {
+      setWaitingForHumanChat(false);
+    }
   };
 
   const handleSendTriageText = async () => {
     const content = triageText.trim();
 
-    if (!content || !triageId || !currentStepId) {
+    if (!content || !triageId || !currentStepId || isTriageFinished) {
       return;
     }
 
@@ -341,7 +418,8 @@ export default function ChatScreen() {
 
       setTriageText('');
 
-      if (response.finished && goToHumanMode(response.result)) {
+      if (response.finished) {
+        await handleFinishedTriage(response);
         return;
       }
 
@@ -352,7 +430,7 @@ export default function ChatScreen() {
   };
 
   const handleQuickReply = async (value: string) => {
-    if (!triageId || !currentStepId) {
+    if (!triageId || !currentStepId || isTriageFinished) {
       return;
     }
 
@@ -363,7 +441,8 @@ export default function ChatScreen() {
         answer_value: value,
       });
 
-      if (response.finished && goToHumanMode(response.result)) {
+      if (response.finished) {
+        await handleFinishedTriage(response);
         return;
       }
 
@@ -473,6 +552,28 @@ export default function ChatScreen() {
           </View>
         )}
 
+        {mode === 'triage' && waitingForHumanChat && (
+          <View className="bg-white rounded-2xl p-5 mb-4">
+            <View className="flex-row items-center gap-3 mb-2">
+              <ActivityIndicator color="#500D0D" />
+              <Text className="text-[#500D0D] font-bold text-lg">Preparando atendimento</Text>
+            </View>
+            <Text className="text-[#9F7065]">
+              A URA registrou sua solicitação. Estamos preparando o chat com o suporte.
+            </Text>
+          </View>
+        )}
+
+        {mode === 'triage' && isTriageFinished && !waitingForHumanChat && (
+          <View className="bg-white rounded-2xl p-5 mb-4">
+            <Text className="text-[#500D0D] font-bold text-lg mb-2">Atendimento finalizado</Text>
+            <Text className="text-[#9F7065]">
+              A triagem foi concluída. Volte para a tela de atendimentos para acompanhar o
+              histórico.
+            </Text>
+          </View>
+        )}
+
         {mode === 'human' && (
           <View className="mb-4">
             <Text className="text-center text-[#9F7065] font-bold mb-3 uppercase tracking-wide">
@@ -554,7 +655,7 @@ export default function ChatScreen() {
         )}
       </ScrollView>
 
-      {mode === 'triage' && currentInput?.mode === 'quick_replies' && (
+      {canAnswerTriage && currentInput?.mode === 'quick_replies' && (
         <View className="border-t border-[#E7D6C5] bg-white px-4 py-3 gap-2">
           {(currentInput.quick_replies ?? []).map((reply) => (
             <TouchableOpacity
@@ -569,7 +670,7 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {mode === 'triage' && currentInput?.mode === 'free_text' && (
+      {canAnswerTriage && currentInput?.mode === 'free_text' && (
         <View className="border-t border-[#E7D6C5] bg-white px-4 py-3">
           <View className="flex-row items-center gap-3">
             <View className="flex-1 bg-[#F4EAD9] rounded-full px-4 py-2 flex-row items-center">
