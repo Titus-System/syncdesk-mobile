@@ -1,4 +1,5 @@
 import { Entypo, FontAwesome6 } from '@expo/vector-icons';
+import { useGetMe } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -16,7 +17,6 @@ import Toolbar from '@/components/Toolbar';
 import { useClientConversations } from '@/hooks/useClientConversations';
 import { useCreateTriageMutation } from '@/hooks/useCreateTriageMutation';
 import { getErrorMessage } from '@/lib/errors';
-import { useGetMe } from '@titus-system/syncdesk';
 
 type ConversationMessage = {
   id?: string | number;
@@ -31,6 +31,16 @@ type ConversationItem = {
   ticket_id?: string | number | null;
   agent_id?: string | number | null;
   messages?: ConversationMessage[] | null;
+};
+
+type TriageBootstrap = {
+  triage_id?: string | number | null;
+  step_id?: string | number | null;
+  current_step_id?: string | number | null;
+  input?: unknown;
+  current_input?: unknown;
+  current_message?: string | null;
+  message?: string | null;
 };
 
 function getLastMessage(conversation: ConversationItem): ConversationMessage | null {
@@ -53,6 +63,26 @@ function formatTime(rawDate?: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function toStringParam(value: unknown) {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function toJsonParam(value: unknown) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return undefined;
+  }
 }
 
 export default function SupportScreen() {
@@ -94,14 +124,26 @@ export default function SupportScreen() {
 
   const handleStartSupport = async () => {
     try {
-      const triage = await createTriageMutation.mutateAsync();
+      const triage = (await createTriageMutation.mutateAsync()) as TriageBootstrap;
+      const triageId = toStringParam(triage.triage_id);
+
+      if (!triageId) {
+        Alert.alert(
+          'Erro',
+          'A URA foi iniciada, mas o identificador da triagem não foi retornado.',
+        );
+        return;
+      }
 
       router.push({
         pathname: '/chat/[id]',
         params: {
-          id: String(triage.triage_id),
+          id: triageId,
           mode: 'triage',
-          triageId: String(triage.triage_id),
+          triageId,
+          stepId: toStringParam(triage.current_step_id ?? triage.step_id),
+          initialInput: toJsonParam(triage.current_input ?? triage.input),
+          initialMessage: toStringParam(triage.current_message ?? triage.message),
         },
       });
     } catch (error: unknown) {
@@ -116,7 +158,7 @@ export default function SupportScreen() {
     <View className="flex-1 bg-[#F4EAD9]">
       <Toolbar />
 
-      <ScrollView contentContainerStyle={{ paddingTop: 131, paddingBottom: 130 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 140, paddingBottom: 130 }}>
         <View className="flex flex-col items-center">
           <View className="bg-[#ECD0BB] flex flex-row items-center px-5 w-[94%] py-[4px] rounded-[48] mb-6">
             <FontAwesome6 name="magnifying-glass" size={24} color="#9F7065" />
