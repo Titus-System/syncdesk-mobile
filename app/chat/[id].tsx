@@ -1,10 +1,8 @@
-import { Feather, FontAwesome6, Entypo } from '@expo/vector-icons';
+import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useGetMe } from '@titus-system/syncdesk';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Modal,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -21,6 +19,7 @@ import { useLiveChatSocket } from '@/hooks/useLiveChatSocket';
 import { usePaginatedMessages } from '@/hooks/usePaginatedMessages';
 import { useSendTriageMessageMutation } from '@/hooks/useSendTriageMessageMutation';
 import { ChatMessageDto } from '@/services/live-chat';
+import { useQueryClient } from '@tanstack/react-query';
 
 type PrimitiveId = string | number;
 
@@ -30,6 +29,8 @@ type RouteParams = {
   triageId?: string;
   ticketId?: string;
   chatId?: string;
+  stepId?: string;
+  triageInput?: string;
 };
 
 type TriageItem = {
@@ -49,8 +50,6 @@ type CurrentInput = {
 };
 
 type AttendanceResult = {
-  type?: string | null;
-  id?: PrimitiveId | null;
   closure_message?: string | null;
   ticket_id?: PrimitiveId | null;
   chat_id?: PrimitiveId | null;
@@ -61,8 +60,6 @@ type AttendanceData = {
   current_message?: string | null;
   current_step_id?: string | null;
   triage_id?: PrimitiveId | null;
-  status?: string | null;
-  end_date?: string | null;
   current_input?: CurrentInput | null;
   result?: AttendanceResult | null;
 };
@@ -81,15 +78,16 @@ type SendTriagePayload = {
 };
 
 type SendTriageResponse = {
-  finished?: boolean | null;
-  closure_message?: string | null;
+  finished?: boolean;
   result?: AttendanceResult | null;
+  step_id?: string | null;
+  input?: CurrentInput | null;
 };
 
 type AttendanceQueryShape = {
   data?: AttendanceData;
   isLoading: boolean;
-  refetch: () => Promise<{ data?: AttendanceData }>;
+  refetch: () => Promise<unknown>;
 };
 
 type SendTriageMutationShape = {
@@ -210,9 +208,7 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
     }
   }
 
-  const isFinished = attendance.status === 'finished' || Boolean(attendance.end_date);
-
-  if (!isFinished && attendance.current_message && attendance.current_step_id) {
+  if (attendance.current_message && attendance.current_step_id) {
     timeline.push({
       id: `triage-current-${attendance.current_step_id}`,
       kind: 'ura',
@@ -220,13 +216,11 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
     });
   }
 
-  const closureMessage = attendance.result?.closure_message;
-
-  if (closureMessage) {
+  if (attendance.result?.closure_message) {
     timeline.push({
       id: `triage-result-${String(attendance.triage_id ?? 'unknown')}`,
       kind: 'system',
-      content: closureMessage,
+      content: attendance.result.closure_message,
     });
   }
 
@@ -236,6 +230,7 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
 export default function ChatScreen() {
   const params = useLocalSearchParams<RouteParams>();
 
+  const queryClient = useQueryClient();
   const getMeQuery = useGetMe() as GetMeQueryShape;
   const attendanceQuery = useAttendanceQuery(
     params.triageId
@@ -251,14 +246,26 @@ export default function ChatScreen() {
   const [mode, setMode] = useState<'human' | 'triage'>(
     params.mode === 'human' ? 'human' : 'triage',
   );
-  const [localTriageFinished, setLocalTriageFinished] = useState(false);
-  const [waitingForHumanChat, setWaitingForHumanChat] = useState(false);
+
+  const [liveTriageStep, setLiveTriageStep] = useState<{
+    stepId: string;
+    input: CurrentInput | null;
+  } | null>(() => {
+    if (!params.stepId) return null;
+    let input: CurrentInput | null = null;
+    if (params.triageInput) {
+      try {
+        input = JSON.parse(params.triageInput) as CurrentInput;
+      } catch {
+        /* ignore */
+      }
+    }
+    return { stepId: params.stepId, input };
+  });
+
+  const [triageFinished, setTriageFinished] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
-
-  const { id } = useLocalSearchParams();
-  const safeId: string | undefined =
-    typeof id === 'string' ? id : Array.isArray(id) ? id[0] : undefined;
 
   const triageId = useMemo(() => {
     if (params.triageId) return String(params.triageId);
@@ -273,27 +280,26 @@ export default function ChatScreen() {
   }, [params.chatId, params.id, mode]);
 
   const ticketId = params.ticketId ? String(params.ticketId) : undefined;
+
   const currentUserId = useMemo(() => getSafeUserId(getMeQuery.data), [getMeQuery.data]);
+
+  useEffect(() => {
+    setMode(params.mode === 'human' ? 'human' : 'triage');
+  }, [params.mode]);
+
+  useEffect(() => {
+    if (getMeQuery.isError && !getMeQuery.isLoading) {
+      router.replace('/login');
+    }
+  }, [getMeQuery.isError, getMeQuery.isLoading]);
 
   const triageTimeline = useMemo(
     () => buildTriageTimeline(attendanceQuery.data),
     [attendanceQuery.data],
   );
 
-  const currentInput = attendanceQuery.data?.current_input;
-  const currentStepId = attendanceQuery.data?.current_step_id;
-
-  const isAttendanceFinished =
-    attendanceQuery.data?.status === 'finished' || Boolean(attendanceQuery.data?.end_date);
-
-  const isTriageFinished = localTriageFinished || isAttendanceFinished;
-
-  const canAnswerTriage =
-    mode === 'triage' &&
-    !isTriageFinished &&
-    Boolean(triageId) &&
-    Boolean(currentStepId) &&
-    Boolean(currentInput);
+  const currentInput = liveTriageStep?.input ?? attendanceQuery.data?.current_input;
+  const currentStepId = liveTriageStep?.stepId ?? attendanceQuery.data?.current_step_id;
 
   const paginatedMessagesQuery = usePaginatedMessages(ticketId);
 
@@ -316,102 +322,39 @@ export default function ChatScreen() {
     [historyMessages, liveMessages],
   );
 
-  const connectionPresentation = getConnectionLabel(connectionStatus);
-
-  const goToHumanMode = useCallback(
-    (result?: AttendanceResult | null) => {
-      if (!result?.ticket_id || !result?.chat_id || !triageId) {
-        return false;
-      }
-
-      const nextTicketId = String(result.ticket_id);
-      const nextChatId = String(result.chat_id);
-
-      setMode('human');
-      setWaitingForHumanChat(false);
-      setLocalTriageFinished(true);
-
-      router.replace({
-        pathname: '/chat/[id]',
-        params: {
-          id: nextChatId,
-          mode: 'human',
-          triageId,
-          ticketId: nextTicketId,
-          chatId: nextChatId,
-        },
-      });
-
-      return true;
-    },
-    [triageId],
-  );
-
-  useEffect(() => {
-    setMode(params.mode === 'human' ? 'human' : 'triage');
-  }, [params.mode]);
-
-  useEffect(() => {
-    setLocalTriageFinished(false);
-    setWaitingForHumanChat(false);
-  }, [triageId]);
-
-  useEffect(() => {
-    if (getMeQuery.isError && !getMeQuery.isLoading) {
-      router.replace('/login');
-    }
-  }, [getMeQuery.isError, getMeQuery.isLoading]);
-
-  useEffect(() => {
-    if (mode !== 'triage') {
-      return;
-    }
-
-    const result = attendanceQuery.data?.result;
-
-    if (result?.type === 'Ticket' && result.ticket_id && result.chat_id) {
-      goToHumanMode(result);
-    }
-  }, [
-    attendanceQuery.data?.result?.type,
-    attendanceQuery.data?.result?.ticket_id,
-    attendanceQuery.data?.result?.chat_id,
-    goToHumanMode,
-    mode,
-  ]);
-
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
-  }, [triageTimeline.length, humanMessages.length, mode, waitingForHumanChat]);
+  }, [triageTimeline.length, humanMessages.length, mode]);
 
-  const handleFinishedTriage = async (response: SendTriageResponse) => {
-    setLocalTriageFinished(true);
+  const connectionPresentation = getConnectionLabel(connectionStatus);
 
-    const isTicketResult = response.result?.type === 'Ticket';
-
-    if (isTicketResult) {
-      setWaitingForHumanChat(true);
+  const goToHumanMode = (result?: AttendanceResult | null) => {
+    if (!result?.ticket_id || !result?.chat_id || !triageId) {
+      return false;
     }
 
-    if (goToHumanMode(response.result)) {
-      return;
-    }
+    setMode('human');
 
-    const refreshed = await attendanceQuery.refetch();
+    void queryClient.refetchQueries({ type: 'all' });
 
-    if (goToHumanMode(refreshed.data?.result)) {
-      return;
-    }
+    router.replace({
+      pathname: '/chat/[id]',
+      params: {
+        id: triageId,
+        mode: 'human',
+        triageId,
+        ticketId: String(result.ticket_id),
+        chatId: String(result.chat_id),
+      },
+    });
 
-    if (!isTicketResult) {
-      setWaitingForHumanChat(false);
-    }
+    return true;
   };
 
   const handleSendTriageText = async () => {
     const content = triageText.trim();
 
-    if (!content || !triageId || !currentStepId || isTriageFinished) {
+    if (!content || !triageId || !currentStepId) {
       return;
     }
 
@@ -425,8 +368,18 @@ export default function ChatScreen() {
       setTriageText('');
 
       if (response.finished) {
-        await handleFinishedTriage(response);
+        setTriageFinished(true);
+        setLiveTriageStep(null);
+        void queryClient.refetchQueries({ type: 'all' });
+        goToHumanMode(response.result);
         return;
+      }
+
+      if (response.step_id) {
+        setLiveTriageStep({
+          stepId: String(response.step_id),
+          input: (response.input as CurrentInput) ?? null,
+        });
       }
 
       await attendanceQuery.refetch();
@@ -436,7 +389,7 @@ export default function ChatScreen() {
   };
 
   const handleQuickReply = async (value: string) => {
-    if (!triageId || !currentStepId || isTriageFinished) {
+    if (!triageId || !currentStepId) {
       return;
     }
 
@@ -448,8 +401,18 @@ export default function ChatScreen() {
       });
 
       if (response.finished) {
-        await handleFinishedTriage(response);
+        setTriageFinished(true);
+        setLiveTriageStep(null);
+        void queryClient.refetchQueries({ type: 'all' });
+        goToHumanMode(response.result);
         return;
+      }
+
+      if (response.step_id) {
+        setLiveTriageStep({
+          stepId: String(response.step_id),
+          input: (response.input as CurrentInput) ?? null,
+        });
       }
 
       await attendanceQuery.refetch();
@@ -474,8 +437,6 @@ export default function ChatScreen() {
 
   const canSendHuman = connectionStatus === 'connected';
 
-  const [menuVisible, setMenuVisible] = useState(false);
-
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-[#F4EAD9]"
@@ -487,29 +448,21 @@ export default function ChatScreen() {
             <Feather name="arrow-left" size={24} color="white" />
           </TouchableOpacity>
 
-          <View className="flex flex-row">
-            <View className="flex flex-row items-center justify-between w-[93%]">
-              <View className="flex flex-col ml-3">
-                <Text className="text-white font-bold text-2xl">Atendimento</Text>
-                <View className="flex flex-row items-center">
-                  {mode === 'human' && (
-                    <View className={`${connectionPresentation.bg} px-2 py-1 rounded-full`}>
-                      <Text className={`${connectionPresentation.text} font-bold text-xs`}>
-                        {connectionPresentation.label}
-                      </Text>
-                    </View>
-                  )}
-                  <Text className="text-white/70 text-xs ml-2">
-                    {mode === 'triage' ? 'Triagem automática' : 'URA + chat humano'}
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => setMenuVisible(true)}>
-                <Entypo name="dots-three-vertical" size={25} color="white" />
-              </TouchableOpacity>
-            </View>
+          <View>
+            <Text className="text-white font-bold text-2xl">Atendimento</Text>
+            <Text className="text-white/70 text-xs">
+              {mode === 'triage' ? 'Triagem automática' : 'URA + chat humano'}
+            </Text>
           </View>
         </View>
+
+        {mode === 'human' && (
+          <View className={`${connectionPresentation.bg} px-3 py-1 rounded-full`}>
+            <Text className={`${connectionPresentation.text} font-bold text-xs`}>
+              {connectionPresentation.label}
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -565,28 +518,6 @@ export default function ChatScreen() {
                 </Text>
               </View>
             ))}
-          </View>
-        )}
-
-        {mode === 'triage' && waitingForHumanChat && (
-          <View className="bg-white rounded-2xl p-5 mb-4">
-            <View className="flex-row items-center gap-3 mb-2">
-              <ActivityIndicator color="#500D0D" />
-              <Text className="text-[#500D0D] font-bold text-lg">Preparando atendimento</Text>
-            </View>
-            <Text className="text-[#9F7065]">
-              A URA registrou sua solicitação. Estamos preparando o chat com o suporte.
-            </Text>
-          </View>
-        )}
-
-        {mode === 'triage' && isTriageFinished && !waitingForHumanChat && (
-          <View className="bg-white rounded-2xl p-5 mb-4">
-            <Text className="text-[#500D0D] font-bold text-lg mb-2">Atendimento finalizado</Text>
-            <Text className="text-[#9F7065]">
-              A triagem foi concluída. Volte para a tela de atendimentos para acompanhar o
-              histórico.
-            </Text>
           </View>
         )}
 
@@ -671,7 +602,7 @@ export default function ChatScreen() {
         )}
       </ScrollView>
 
-      {canAnswerTriage && currentInput?.mode === 'quick_replies' && (
+      {mode === 'triage' && !triageFinished && currentInput?.mode === 'quick_replies' && (
         <View className="border-t border-[#E7D6C5] bg-white px-4 py-3 gap-2">
           {(currentInput.quick_replies ?? []).map((reply) => (
             <TouchableOpacity
@@ -686,7 +617,7 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {canAnswerTriage && currentInput?.mode === 'free_text' && (
+      {mode === 'triage' && !triageFinished && currentInput?.mode === 'free_text' && (
         <View className="border-t border-[#E7D6C5] bg-white px-4 py-3">
           <View className="flex-row items-center gap-3">
             <View className="flex-1 bg-[#F4EAD9] rounded-full px-4 py-2 flex-row items-center">
@@ -747,31 +678,6 @@ export default function ChatScreen() {
           </View>
         </View>
       )}
-      <Modal
-        transparent
-        animationType="fade"
-        visible={menuVisible}
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <TouchableOpacity
-          className="flex-1 bg-black/40 justify-start items-end"
-          activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
-        >
-          <View className="bg-white mt-20 mr-4 rounded-xl p-3 w-56">
-            <TouchableOpacity
-              onPress={() => {
-                setMenuVisible(false);
-                if (!safeId || !ticketId) return;
-                router.push({ pathname: '/chat/[id]/agents', params: { id: safeId, ticketId } });
-              }}
-              className="py-3"
-            >
-              <Text className="text-[#1C0505] font-medium">Histórico de atendentes</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }

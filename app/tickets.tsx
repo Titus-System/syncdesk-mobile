@@ -1,177 +1,20 @@
-import BottomAppBar from '@/components/BottomAppBar';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Toolbar from '@/components/Toolbar';
-import { useAuth } from '@/contexts/AuthContext';
-import { FontAwesome, FontAwesome6, MaterialIcons } from '@expo/vector-icons';
-import type { TicketResponse, TicketStatus, TicketCriticality } from '@titus-system/syncdesk';
+import BottomAppBar from '@/components/BottomAppBar';
+import { MaterialIcons, FontAwesome6, FontAwesome } from '@expo/vector-icons';
+import { useState } from 'react';
 import { useTickets } from '@titus-system/syncdesk';
+import type { TicketResponse } from '@titus-system/syncdesk';
+import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '@/lib/api';
-
-type Comment = {
-  comment_id: string;
-  author: string;
-  text: string;
-  date: string;
-  internal: boolean;
-};
-
-type QueueItem = {
-  id: string;
-};
-
-type QueueResponse = {
-  items: QueueItem[];
-  page: number;
-  page_size: number;
-  total: number;
-};
-
-async function fetchQueue(): Promise<QueueResponse> {
-  return apiFetch<QueueResponse>(
-    '/tickets/queue?status=awaiting_assignment&unassigned_only=true&page_size=100',
-  );
-}
-
-async function searchTickets(query: string) {
-  const params = new URLSearchParams({
-    search_query: query,
-  });
-
-  return apiFetch<TicketResponse[]>(`/tickets/search?${params.toString()}`);
-}
 
 export default function TicketsScreen() {
+  const [openTicketId, setOpenTicketId] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const [openTicketId, setOpenTicketId] = useState<string | null>(null);
+  const { data, isLoading } = useTickets(user?.id ? { client_id: user.id } : {});
 
-  function getTicketCriticalityLabel(criticality?: string | null) {
-    switch (String(criticality ?? '').toLowerCase()) {
-      case 'high':
-        return 'Alta';
-      case 'medium':
-        return 'Média';
-      case 'low':
-        return 'Baixa';
-      case 'critical':
-        return 'Crítica';
-      default:
-        return criticality || 'Não informada';
-    }
-  }
-
-  function getTicketStatusLabel(status?: string | null) {
-    switch (String(status ?? '').toLowerCase()) {
-      case 'open':
-        return 'Aberto';
-      case 'awaiting_assignment':
-        return 'Aguardando atendente';
-      case 'assigned':
-        return 'Atribuído';
-      case 'in_progress':
-        return 'Em andamento';
-      case 'waiting_for_customer':
-      case 'waiting_customer':
-        return 'Aguardando cliente';
-      case 'waiting_for_provider':
-        return 'Aguardando provedor';
-      case 'waiting_for_validation':
-        return 'Aguardando validação';
-      case 'resolved':
-        return 'Resolvido';
-      case 'closed':
-        return 'Fechado';
-      case 'finished':
-        return 'Finalizado';
-      case 'cancelled':
-        return 'Cancelado';
-      default:
-        return status || 'Sem status';
-    }
-  }
-
-  const [selectedStatus, setSelectedStatus] = useState<TicketStatus | undefined>(undefined);
-  const [selectedCriticality, setSelectedCriticality] = useState<TicketCriticality | undefined>(
-    undefined,
-  );
-  const [openDropdown, setOpenDropdown] = useState<'criticality' | 'status' | null>(null);
-  const criticalityOptions: { label: string; value: TicketCriticality }[] = [
-    { label: 'Alta', value: 'high' },
-    { label: 'Média', value: 'medium' },
-    { label: 'Baixa', value: 'low' },
-  ];
-
-  const statusOptions: { label: string; value: TicketStatus }[] = [
-    { label: 'Aberto', value: 'open' },
-    { label: 'Aguardando atendente', value: 'awaiting_assignment' },
-    { label: 'Em andamento', value: 'in_progress' },
-    { label: 'Aguardando provedor', value: 'waiting_for_provider' },
-    { label: 'Aguardando validação', value: 'waiting_for_validation' },
-    { label: 'Finalizado', value: 'finished' },
-  ];
-
-  const filters = user?.id
-    ? {
-        client_id: user.id,
-        ...(selectedCriticality && { criticality: selectedCriticality }),
-        ...(selectedStatus && { status: selectedStatus }),
-      }
-    : undefined;
-
-  const { data, isLoading } = useTickets(filters);
-
-  const { data: queueData } = useQuery({
-    queryKey: ['ticketQueue'],
-    queryFn: fetchQueue,
-  });
-
-  const queuePositions = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    queueData?.items?.forEach((item, index) => {
-      map[item.id] = index + 1;
-    });
-
-    return map;
-  }, [queueData]);
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-
-  const isSearchActive = debouncedQuery.length > 0;
-
-  const { data: searchData, isLoading: isSearching } = useQuery({
-    queryKey: ['ticketSearch', debouncedQuery, selectedStatus, selectedCriticality],
-    queryFn: () => searchTickets(debouncedQuery),
-    enabled: debouncedQuery.length > 0,
-  });
-
-  const defaultTickets: TicketResponse[] = Array.isArray(data) ? data : (data?.items ?? []);
-
-  const ticketsBase = isSearchActive ? (searchData ?? []) : defaultTickets;
-
-  const tickets = ticketsBase
-    .filter((ticket) => {
-      if (selectedStatus && ticket.status !== selectedStatus) {
-        return false;
-      }
-
-      if (selectedCriticality && ticket.criticality !== selectedCriticality) {
-        return false;
-      }
-
-      return true;
-    })
-    .slice()
-    .sort((a, b) => {
-      const dateA = new Date(a.creation_date).getTime();
-      const dateB = new Date(b.creation_date).getTime();
-
-      return dateB - dateA;
-    });
+  const tickets = (data as unknown as { items: TicketResponse[] })?.items ?? [];
 
   const toggleTicket = (ticketId: string) => {
     setOpenTicketId((current) => (current === ticketId ? null : ticketId));
@@ -185,18 +28,19 @@ export default function TicketsScreen() {
     return `${ticket.product ?? 'Sem produto'} - ${getTicketTypeLabel(ticket.type)}`;
   }
 
-  function getTicketTypeLabel(type?: string | null) {
-    switch (String(type ?? '').toLowerCase()) {
+  function getTicketTypeLabel(type: string) {
+    switch (type) {
       case 'issue':
         return 'Falha';
+
       case 'new_feature':
         return 'Nova funcionalidade';
+
       case 'access':
         return 'Liberação de acesso';
-      case 'request':
-        return 'Solicitação';
+
       default:
-        return type || 'Tipo não informado';
+        return type;
     }
   }
 
@@ -206,177 +50,134 @@ export default function TicketsScreen() {
         return <FontAwesome6 name="universal-access" size={36} color="white" />;
 
       case 'issue':
-        return <FontAwesome6 name="circle-exclamation" size={36} color="white" />;
+        return <FontAwesome name="question-circle" size={36} color="white" />;
 
       case 'new_feature':
-        return <FontAwesome name="question-circle" size={36} color="white" />;
+        return <FontAwesome6 name="circle-exclamation" size={36} color="white" />;
 
       default:
         return <FontAwesome name="question-circle" size={36} color="white" />;
     }
   }
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-    }, 500);
+  function getTicketCriticalityLabel(criticality: string) {
+    switch (criticality) {
+      case 'high':
+        return 'Alta';
 
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
+      case 'medium':
+        return 'Média';
+
+      case 'low':
+        return 'Baixa';
+
+      default:
+        return criticality;
+    }
+  }
+
+  function getTicketStatusLabel(status: string) {
+    switch (status) {
+      case 'open':
+        return 'Aberto';
+
+      case 'awaiting_assignment':
+        return 'Aguardando atendente';
+
+      case 'in_progress':
+        return 'Em andamento';
+
+      case 'waiting_for_provider':
+        return 'Aguardando provedor';
+
+      case 'waiting_for_validation':
+        return 'Aguardando validação';
+
+      case 'finished':
+        return 'Finalizado';
+
+      default:
+        return status;
+    }
+  }
 
   return (
     <View className="flex-1 bg-[#F4EAD9]">
       <Toolbar />
-
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: 131,
-          paddingBottom: 131,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
         }}
       >
-        <View className="bg-[#ECD0BB] flex-row items-center px-5 w-[94%] py-1 rounded-[48px] mb-4">
-          <FontAwesome6 name="magnifying-glass" size={22} color="#9F7065" />
-
+        <View className="bg-[#ECD0BB] flex flex-row items-center px-5 w-[94%] py-[4px] rounded-[48] mb-6">
+          <FontAwesome6 name="magnifying-glass" size={24} color="#9F7065" />
           <TextInput
             placeholder="Pesquise para encontrar o que deseja"
             placeholderTextColor="#9F7065"
-            className="flex-1 ml-2 text-[#500D0D]"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
             style={{
               backgroundColor: 'transparent',
-              paddingVertical: 10,
-              paddingHorizontal: 6,
+              padding: 10,
+              borderRadius: 8,
+              marginLeft: 8,
+              flex: 1,
             }}
           />
-
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} className="pl-2">
-              <MaterialIcons name="close" size={22} color="#9F7065" />
-            </TouchableOpacity>
-          )}
         </View>
-        <View className="flex flex-row items-center gap-2 w-[94%] mb-4">
-          {/* DROPDOWN CRITICALITY */}
-          <View className="flex-1">
-            <TouchableOpacity
-              onPress={() => setOpenDropdown(openDropdown === 'criticality' ? null : 'criticality')}
-              className="bg-[#ECD0BB] px-3 py-2 rounded-lg"
-            >
-              <Text className="text-[#9F7065]">
-                {selectedCriticality
-                  ? criticalityOptions.find((o) => o.value === selectedCriticality)?.label
-                  : 'Criticidade'}
-              </Text>
-            </TouchableOpacity>
-
-            {openDropdown === 'criticality' && (
-              <View className="bg-white mt-1 rounded-lg shadow">
-                {criticalityOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    onPress={() => {
-                      setSelectedCriticality(option.value);
-                      setOpenDropdown(null);
-                    }}
-                    className="px-3 py-2"
-                  >
-                    <Text>{option.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 11 }}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          className="flex flex-row"
+        >
+          <View>
+            <Text>Todos</Text>
           </View>
-
-          {/* DROPDOWN STATUS */}
-          <View className="flex-1">
-            <TouchableOpacity
-              onPress={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
-              className="bg-[#ECD0BB] px-3 py-2 rounded-lg"
-            >
-              <Text className="text-[#9F7065]">
-                {selectedStatus
-                  ? statusOptions.find((o) => o.value === selectedStatus)?.label
-                  : 'Status'}
-              </Text>
-            </TouchableOpacity>
-
-            {openDropdown === 'status' && (
-              <View className="bg-white mt-1 rounded-lg shadow">
-                {statusOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    onPress={() => {
-                      setSelectedStatus(option.value);
-                      setOpenDropdown(null);
-                    }}
-                    className="px-3 py-2"
-                  >
-                    <Text>{option.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+          <View>
+            <Text>Nova funcionalidade</Text>
           </View>
+          <View>
+            <Text>Falha</Text>
+          </View>
+          <View>
+            <Text>Liberação de acesso</Text>
+          </View>
+        </ScrollView>
 
-          {/* LIMPAR FILTROS */}
-          {(selectedCriticality || selectedStatus) && (
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedCriticality(undefined);
-                setSelectedStatus(undefined);
-              }}
-              className="bg-red-100 px-3 py-2 rounded-lg"
-            >
-              <Text className="text-red-600">✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        {isLoading || isSearching ? (
+        {isLoading ? (
           <Text className="text-[#6B7280] mt-10">Carregando tickets...</Text>
-        ) : tickets.length === 0 && debouncedQuery.length > 0 ? (
-          <Text className="text-[#6B7280] mt-10">Nenhum resultado encontrado para sua busca.</Text>
         ) : tickets.length === 0 ? (
           <Text className="text-[#6B7280] mt-10">Nenhum ticket encontrado.</Text>
         ) : (
-          tickets.map((ticket: TicketResponse) => {
+          tickets.map((ticket) => {
             const isOpen = openTicketId === ticket.id;
-            const visibleComments = (ticket.comments ?? []).filter((c: Comment) => !c.internal);
 
             return (
-              <View key={ticket.id} className="bg-white px-4 py-5 w-[94%] mb-4 rounded-2xl">
-                <TouchableOpacity activeOpacity={0.8} onPress={() => toggleTicket(ticket.id)}>
-                  <View className="flex-row items-start justify-between">
-                    <View className="flex-row items-center flex-1 pr-2">
-                      <View className="bg-[#D34008] rounded-full items-center justify-center w-20 h-20">
+              <View
+                key={ticket.id}
+                className="bg-white px-4 py-5 flex flex-col w-[94%] mb-4 rounded-xl"
+              >
+                <TouchableOpacity onPress={() => toggleTicket(ticket.id)}>
+                  <View className="flex flex-row items-start justify-between">
+                    <View className="flex flex-row items-center flex-1">
+                      <View className="bg-[#D34008] rounded-full flex items-center justify-center w-20 h-20">
                         {renderTicketIcon(ticket.type)}
                       </View>
 
                       <View className="ml-5 flex-1">
-                        <Text className="font-bold text-xl mb-2 text-[#1E293B]">
-                          {getTicketTitle(ticket)}
-                        </Text>
+                        <Text className="font-bold text-xl mb-2">{getTicketTitle(ticket)}</Text>
 
-                        <Text className="text-[#6B7280] text-xs" numberOfLines={1}>
-                          {ticket.id}
-                        </Text>
-
-                        <View className="self-start mt-2 bg-[#FFF4EE] px-3 py-1 rounded-full">
-                          <Text className="text-[#D34008] text-xs font-bold">
-                            {getTicketStatusLabel(ticket.status)}
-                          </Text>
-                        </View>
+                        <Text className="text-[#6B7280]">{ticket.id}</Text>
                       </View>
                     </View>
 
                     <MaterialIcons
                       name={isOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
-                      size={38}
+                      size={40}
                       color="#D34008"
                     />
                   </View>
@@ -387,10 +188,10 @@ export default function TicketsScreen() {
                     <View className="h-[1px] bg-[#F2B6A0] w-full mb-5" />
 
                     <Text className="text-[#6B7280] mb-5 text-sm leading-6">
-                      {ticket.description || 'Sem descrição disponível.'}
+                      {ticket.description || 'Sem descrição disponível'}
                     </Text>
 
-                    <View className="mb-5">
+                    <View className="mb-5 flex flex-col gap-1">
                       <View className="flex flex-row">
                         <Text className="font-bold text-[#6B7280] text-sm">Produto/Serviço: </Text>
                         <Text className="text-[#6B7280] text-sm">
@@ -404,20 +205,6 @@ export default function TicketsScreen() {
                           {getTicketStatusLabel(ticket.status)}
                         </Text>
                       </View>
-
-                      {ticket.status === 'awaiting_assignment' &&
-                        (queueData?.items?.length ?? 0) > 0 && (
-                          <View className="flex flex-row">
-                            <Text className="font-bold text-[#6B7280] text-sm">
-                              Posição na fila:{' '}
-                            </Text>
-                            <Text className="text-[#6B7280] text-sm">
-                              {queuePositions[ticket.id]
-                                ? `${queuePositions[ticket.id]}º`
-                                : 'Acima de 100º'}
-                            </Text>
-                          </View>
-                        )}
 
                       <View className="flex flex-row">
                         <Text className="font-bold text-[#6B7280] text-sm">Criticidade: </Text>
@@ -441,49 +228,34 @@ export default function TicketsScreen() {
                       </View>
                     </View>
 
-                    <View>
+                    <View className="flex flex-col">
                       <Text className="font-bold text-[#6B7280] text-sm mb-1">
-                        Notas do chamado:
+                        Notas do atendente:
                       </Text>
 
-                      <View className="bg-[#ECD0BB] py-2 px-3 rounded-lg">
-                        {visibleComments.length === 0 ? (
-                          <Text className="text-[#A07167] text-sm leading-6">
-                            Nenhuma nota registrada.
-                          </Text>
-                        ) : (
-                          visibleComments.map((comment: Comment, index: number) => {
-                            const isLast = index === visibleComments.length - 1;
-
-                            return (
-                              <View key={comment.comment_id}>
-                                <Text className="text-[#A07167] text-sm leading-6">
-                                  <Text className="font-semibold">{comment.author}:</Text>{' '}
-                                  <Text>{comment.text}</Text>
-                                  {'\n'}
-                                  <Text className="text-[#b48f87] text-sm">
-                                    {new Date(comment.date + 'Z').toLocaleString('pt-BR', {
-                                      timeZone: 'America/Sao_Paulo',
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                  </Text>
-                                  {!isLast && '\n'}
-                                </Text>
-                              </View>
-                            );
-                          })
-                        )}
-                      </View>
+                      <Text className="text-[#A07167] bg-[#EDD0BC] rounded-lg text-sm p-3 leading-6">
+                        Nenhuma nota registrada.
+                      </Text>
                     </View>
-
                     <TouchableOpacity
-                      className="bg-[#D34008] mt-5 flex-row justify-center rounded-3xl"
-                      activeOpacity={0.85}
-                      onPress={() => openTicketConversation(ticket)}
+                      className="bg-[#D34008] mt-5 flex flex-row justify-center rounded-3xl"
+                      onPress={() => {
+                        const chatId = (ticket.chat_ids as unknown as string[])?.[0];
+                        if (!chatId) {
+                          Alert.alert('Aviso', 'Nenhuma conversa associada a este chamado ainda.');
+                          return;
+                        }
+                        router.push({
+                          pathname: '/chat/[id]',
+                          params: {
+                            id: chatId,
+                            mode: 'human',
+                            ticketId: ticket.id,
+                            chatId,
+                            triageId: ticket.triage_id as unknown as string,
+                          },
+                        });
+                      }}
                     >
                       <Text className="text-white font-bold text-lg py-3 text-center">
                         Abrir a conversa correspondente
@@ -496,26 +268,7 @@ export default function TicketsScreen() {
           })
         )}
       </ScrollView>
-
       <BottomAppBar />
     </View>
   );
-}
-
-function openTicketConversation(ticket: TicketResponse) {
-  const triageId = String(ticket.triage_id ?? '');
-
-  if (!triageId) {
-    return;
-  }
-
-  router.push({
-    pathname: '/chat/[id]',
-    params: {
-      id: triageId,
-      mode: 'history',
-      triageId,
-      ticketId: ticket.id,
-    },
-  });
 }
