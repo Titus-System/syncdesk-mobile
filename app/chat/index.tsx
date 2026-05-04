@@ -229,6 +229,7 @@ export default function SupportScreen() {
                           ticketId: conversation.ticket_id
                             ? String(conversation.ticket_id)
                             : undefined,
+                          finishedAt: conversation.finished_at ?? undefined,
                         },
                       })
                     }
