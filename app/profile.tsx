@@ -120,7 +120,22 @@ export default function ProfileScreen() {
         <View className="px-5 pt-5 gap-3">
           <MenuItem
             icon={<Feather name="lock" size={20} color="#500D0D" />}
+            label="Produtos/Serviços"
+            onPress={() => router.push('/forgot-password')}
+          />
+          <MenuItem
+            icon={<Feather name="lock" size={20} color="#500D0D" />}
             label="Alterar senha"
+            onPress={() => router.push('/forgot-password')}
+          />
+          <MenuItem
+            icon={<Feather name="lock" size={20} color="#500D0D" />}
+            label="Editar conta"
+            onPress={() => router.push('/edit-profile')}
+          />
+          <MenuItem
+            icon={<Feather name="lock" size={20} color="#500D0D" />}
+            label="Notificações"
             onPress={() => router.push('/forgot-password')}
           />
 
