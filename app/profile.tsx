@@ -1,5 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { apiFetch } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import * as SecureStore from 'expo-secure-store';
 import { useState } from 'react';
 import {
@@ -53,6 +55,10 @@ function getInitials(name?: string | null, username?: string | null) {
     .slice(0, 2);
 }
 
+async function fetchCompany(companyId: string) {
+  return apiFetch<{ trade_name: string }>(`/companies/${companyId}`);
+}
+
 export default function ProfileScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -60,7 +66,19 @@ export default function ProfileScreen() {
   const { mutateAsync: logout } = useLogout();
   const { setUser } = useAuth();
 
-  const user = rawUser as AuthUser | undefined;
+  type AuthUserWithCompany = AuthUser & {
+    company_id?: string | null;
+  };
+
+  const user = rawUser as AuthUserWithCompany | undefined;
+
+  const { data: companyData, isLoading: isLoadingCompany } = useQuery({
+    queryKey: ['company', user?.company_id],
+    queryFn: () => fetchCompany(user?.company_id as string),
+    enabled: !!user?.company_id,
+  });
+
+  const tradeName = companyData?.trade_name;
 
   async function clearLocalSession() {
     setUser(null);
@@ -112,6 +130,16 @@ export default function ProfileScreen() {
                   {user?.name ?? user?.username ?? '—'}
                 </Text>
                 <Text className="text-slate-700 text-sm underline">{user?.email ?? '—'}</Text>
+                {user?.company_id && (
+                  <View className="flex flex-row">
+                    <Text className="text-slate-800 font-medium">Empresa: </Text>
+                    <Text className="text-slate-800 font-medium">
+                      {isLoadingCompany
+                        ? 'Carregando empresa...'
+                        : (tradeName ?? 'Empresa não encontrada')}
+                    </Text>
+                  </View>
+                )}
               </View>
             </>
           )}

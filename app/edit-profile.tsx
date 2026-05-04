@@ -1,6 +1,6 @@
 import { usePatchUser, useGetMe } from '@titus-system/syncdesk';
 import { Text, TouchableOpacity, View, TextInput } from 'react-native';
-import { Feather, Entypo } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { UpdateUserDTO } from '@titus-system/syncdesk';
 
