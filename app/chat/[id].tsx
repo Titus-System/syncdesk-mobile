@@ -31,6 +31,7 @@ type RouteParams = {
   chatId?: string;
   stepId?: string;
   triageInput?: string;
+  finishedAt?: string;
 };
 
 type TriageItem = {
@@ -281,6 +282,8 @@ export default function ChatScreen() {
 
   const ticketId = params.ticketId ? String(params.ticketId) : undefined;
 
+  const isReadOnly = Boolean(params.finishedAt);
+
   const currentUserId = useMemo(() => getSafeUserId(getMeQuery.data), [getMeQuery.data]);
 
   useEffect(() => {
@@ -314,7 +317,7 @@ export default function ChatScreen() {
   }, [paginatedMessagesQuery.data]);
 
   const { connectionStatus, liveMessages, sendMessage, lastError } = useLiveChatSocket(
-    mode === 'human' ? chatId : undefined,
+    mode === 'human' && !isReadOnly ? chatId : undefined,
   );
 
   const humanMessages = useMemo(
@@ -456,7 +459,13 @@ export default function ChatScreen() {
           </View>
         </View>
 
-        {mode === 'human' && (
+        {mode === 'human' && isReadOnly && (
+          <View className="bg-gray-200 px-3 py-1 rounded-full">
+            <Text className="text-gray-700 font-bold text-xs">Encerrado</Text>
+          </View>
+        )}
+
+        {mode === 'human' && !isReadOnly && (
           <View className={`${connectionPresentation.bg} px-3 py-1 rounded-full`}>
             <Text className={`${connectionPresentation.text} font-bold text-xs`}>
               {connectionPresentation.label}
@@ -648,7 +657,15 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {mode === 'human' && (
+      {mode === 'human' && isReadOnly && (
+        <View className="border-t border-[#E7D6C5] bg-white px-4 py-4">
+          <Text className="text-center text-[#9F7065] font-medium">
+            Atendimento encerrado. Não é possível enviar novas mensagens.
+          </Text>
+        </View>
+      )}
+
+      {mode === 'human' && !isReadOnly && (
         <View className="border-t border-[#E7D6C5] bg-white px-4 py-3">
           <View className="flex-row items-center gap-3">
             <View className="flex-1 bg-[#F4EAD9] rounded-full px-4 py-2 flex-row items-center">
