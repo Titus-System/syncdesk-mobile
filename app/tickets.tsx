@@ -6,7 +6,7 @@ import type { TicketResponse, TicketStatus, TicketCriticality } from '@titus-sys
 import { useTickets } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 
@@ -503,19 +503,20 @@ export default function TicketsScreen() {
 }
 
 function openTicketConversation(ticket: TicketResponse) {
-  const triageId = String(ticket.triage_id ?? '');
+  const chatId = ticket.chat_ids?.[0];
 
-  if (!triageId) {
+  if (!chatId) {
+    Alert.alert('Aviso', 'Nenhuma conversa encontrada para este chamado.');
     return;
   }
 
   router.push({
     pathname: '/chat/[id]',
     params: {
-      id: triageId,
-      mode: 'history',
-      triageId,
-      ticketId: ticket.id,
+      id: chatId,
+      mode: 'human',
+      chatId,
+      ticketId: String(ticket.id),
     },
   });
 }

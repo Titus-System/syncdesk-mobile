@@ -1,7 +1,8 @@
 import { Entypo, FontAwesome6 } from '@expo/vector-icons';
 import { apiFetch } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
-import { useGetMe } from '@titus-system/syncdesk';
+import { useGetMe, useTickets } from '@titus-system/syncdesk';
+import type { TicketResponse } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
 import {
@@ -166,6 +167,16 @@ export default function SupportScreen() {
   }, [isSearching, searchData, conversations]);
   const createTriageMutation = useCreateTriageMutation();
 
+  const { data: ticketsData } = useTickets(user?.id ? { client_id: user.id } : {});
+  const ticketProductMap = useMemo(() => {
+    const items = (ticketsData as unknown as { items: TicketResponse[] })?.items ?? [];
+    const map: Record<string, string> = {};
+    for (const t of items) {
+      if (t.id && t.product) map[String(t.id)] = t.product;
+    }
+    return map;
+  }, [ticketsData]);
+
   const filteredConversations = useMemo(() => {
     // Quando está buscando, NÃO processa nada
     if (isSearching) {
@@ -247,7 +258,7 @@ export default function SupportScreen() {
             />
           </View>
 
-          <View className="mt-3 gap-2 w-full">
+          <View className="mt-3 gap-3 w-full">
             {isLoading && (
               <View className="py-10">
                 <ActivityIndicator color="#500D0D" />
@@ -285,10 +296,21 @@ export default function SupportScreen() {
                 const preview = lastMessage?.content ?? 'Atendimento em andamento.';
                 const time = formatTime(lastMessage?.timestamp ?? conversation.started_at);
 
+                const product = conversation.ticket_id
+                  ? (ticketProductMap[String(conversation.ticket_id)] ?? null)
+                  : null;
+
                 return (
                   <TouchableOpacity
                     key={String(conversation.id)}
-                    className="flex flex-row gap-7 items-center h-[11vh] bg-white w-screen px-5"
+                    className="flex flex-row gap-5 items-center bg-white mx-4 px-4 py-4 rounded-2xl"
+                    style={{
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 6,
+                      elevation: 3,
+                    }}
                     onPress={() =>
                       router.push({
                         pathname: '/chat/[id]',
@@ -304,8 +326,8 @@ export default function SupportScreen() {
                       })
                     }
                   >
-                    <View className="bg-[#D34008] w-20 h-20 rounded-[40px] items-center justify-center">
-                      <FontAwesome6 name="headset" size={30} color="white" />
+                    <View className="bg-[#D34008] w-16 h-16 rounded-full items-center justify-center shrink-0">
+                      <FontAwesome6 name="headset" size={26} color="white" />
                     </View>
 
                     <View className="flex flex-col gap-2 w-[60%]">
@@ -315,12 +337,16 @@ export default function SupportScreen() {
                             ? 'Atendimento encerrado'
                             : 'Atendimento em andamento'}
                         </Text>
-                        <Text className="text-[#9F7065] font-medium">{time}</Text>
-                      </View>
 
-                      <Text className="text-lg text-gray-500" numberOfLines={1}>
-                        {preview}
-                      </Text>
+                        <View className="flex flex-row items-center justify-between">
+                          <Text className="text-base text-gray-500 flex-1 mr-2" numberOfLines={1}>
+                            {preview}
+                          </Text>
+                          <Text className="text-[#9F7065] font-medium text-sm shrink-0">
+                            {time}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 );
