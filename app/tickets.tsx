@@ -366,11 +366,11 @@ export default function TicketsScreen() {
                           {ticket.id}
                         </Text>
 
-                        <View className="self-start mt-2 bg-[#FFF4EE] px-3 py-1 rounded-full">
+                        {/*<View className="self-start mt-2 bg-[#FFF4EE] px-3 py-1 rounded-full">
                           <Text className="text-[#D34008] text-xs font-bold">
                             {getTicketStatusLabel(ticket.status)}
                           </Text>
-                        </View>
+                        </View>*/}
                       </View>
                     </View>
 

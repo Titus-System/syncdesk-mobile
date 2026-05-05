@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
@@ -147,9 +147,9 @@ export default function ProfileScreen() {
 
         <View className="px-5 pt-5 gap-3">
           <MenuItem
-            icon={<Feather name="lock" size={20} color="#500D0D" />}
+            icon={<MaterialIcons name="computer" size={20} color="#500D0D" />}
             label="Produtos/Serviços"
-            onPress={() => router.push('/forgot-password')}
+            onPress={() => router.push('/list-products')}
           />
           <MenuItem
             icon={<Feather name="lock" size={20} color="#500D0D" />}
@@ -157,16 +157,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/forgot-password')}
           />
           <MenuItem
-            icon={<Feather name="lock" size={20} color="#500D0D" />}
+            icon={<MaterialCommunityIcons name="pencil-outline" size={23} color="#500D0D" />}
             label="Editar conta"
             onPress={() => router.push('/edit-profile')}
           />
-          <MenuItem
-            icon={<Feather name="lock" size={20} color="#500D0D" />}
-            label="Notificações"
-            onPress={() => router.push('/forgot-password')}
-          />
-
           <TouchableOpacity
             className="items-center py-4"
             disabled={isLoggingOut}

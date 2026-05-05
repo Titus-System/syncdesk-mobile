@@ -1,7 +1,9 @@
 import { Entypo, FontAwesome6 } from '@expo/vector-icons';
+import { apiFetch } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { useGetMe } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -43,9 +45,43 @@ type TriageBootstrap = {
   message?: string | null;
 };
 
+type SearchConversation = {
+  id: string;
+  ticket_id: string;
+  agent_id?: string | null;
+  started_at: string;
+  finished_at?: string | null;
+  messages?: {
+    id: string;
+    content?: string | null;
+    timestamp?: string | null;
+  }[];
+};
+
 function getLastMessage(conversation: ConversationItem): ConversationMessage | null {
   const messages = conversation.messages ?? [];
   return messages.length > 0 ? (messages[messages.length - 1] ?? null) : null;
+}
+
+async function searchConversations(query: string): Promise<SearchConversation[]> {
+  const res = await apiFetch(`/conversations/search?search_query=${encodeURIComponent(query)}`);
+
+  // 🔒 garante que é array
+  if (Array.isArray(res)) {
+    return res as SearchConversation[];
+  }
+
+  // 🔒 garante que é objeto com data
+  if (
+    res &&
+    typeof res === 'object' &&
+    'data' in res &&
+    Array.isArray((res as { data: unknown }).data)
+  ) {
+    return (res as { data: SearchConversation[] }).data;
+  }
+
+  return [];
 }
 
 function formatTime(rawDate?: string | null) {
@@ -87,7 +123,14 @@ function toJsonParam(value: unknown) {
 
 export default function SupportScreen() {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 400);
 
+    return () => clearTimeout(t);
+  }, [search]);
   const { data: user, isLoading: isLoadingUser, isError: isErrorUser } = useGetMe();
   const {
     data: conversations = [],
@@ -95,11 +138,40 @@ export default function SupportScreen() {
     isError: isErrorConversations,
     refetch,
   } = useClientConversations(user?.id ? String(user.id) : undefined);
+  const isSearching = debouncedSearch.length >= 5;
+  const { data: searchData, isLoading: isLoadingSearch } = useQuery<SearchConversation[]>({
+    queryKey: ['conversation-search', debouncedSearch],
+    enabled: isSearching,
+    queryFn: async () => {
+      const res = await searchConversations(debouncedSearch);
 
-  const typedConversations = conversations as ConversationItem[];
+      return res;
+    },
+  });
+  const typedConversations: ConversationItem[] = useMemo(() => {
+    if (isSearching) {
+      return (
+        searchData?.map((c) => ({
+          id: c.id,
+          started_at: c.started_at,
+          finished_at: c.finished_at ?? null,
+          ticket_id: c.ticket_id,
+          agent_id: c.agent_id ?? null,
+          messages: c.messages ?? [],
+        })) ?? []
+      );
+    }
+
+    return (conversations as ConversationItem[]) ?? [];
+  }, [isSearching, searchData, conversations]);
   const createTriageMutation = useCreateTriageMutation();
 
   const filteredConversations = useMemo(() => {
+    // Quando está buscando, NÃO processa nada
+    if (isSearching) {
+      return typedConversations;
+    }
+
     const normalizedSearch = search.trim().toLowerCase();
 
     return [...typedConversations]
@@ -109,9 +181,7 @@ export default function SupportScreen() {
         return bTime - aTime;
       })
       .filter((conversation) => {
-        if (!normalizedSearch) {
-          return true;
-        }
+        if (!normalizedSearch) return true;
 
         const preview = String(getLastMessage(conversation)?.content ?? '').toLowerCase();
 
@@ -120,7 +190,7 @@ export default function SupportScreen() {
           String(conversation.id).toLowerCase().includes(normalizedSearch)
         );
       });
-  }, [typedConversations, search]);
+  }, [typedConversations, search, isSearching]);
 
   const handleStartSupport = async () => {
     try {
@@ -151,7 +221,7 @@ export default function SupportScreen() {
     }
   };
 
-  const isLoading = isLoadingUser || isLoadingConversations;
+  const isLoading = isLoadingUser || isLoadingConversations || (isSearching && isLoadingSearch);
   const isError = isErrorUser || isErrorConversations;
 
   return (
@@ -238,7 +308,7 @@ export default function SupportScreen() {
                       <FontAwesome6 name="headset" size={30} color="white" />
                     </View>
 
-                    <View className="flex flex-col gap-2 w-[73%]">
+                    <View className="flex flex-col gap-2 w-[60%]">
                       <View className="flex flex-row items-center justify-between">
                         <Text className="font-extrabold text-2xl">
                           {conversation.finished_at
