@@ -47,7 +47,6 @@ export default function HomeScreen() {
   const user = rawUser as AuthUser | undefined;
 
   const clientId = user?.id;
-
   useFocusEffect(
     React.useCallback(() => {
       void queryClient.refetchQueries({ type: 'active' });
@@ -99,18 +98,8 @@ export default function HomeScreen() {
   const waitingCount = tickets.filter((t) => WAITING_STATUSES.has(t.status)).length;
   const closedCount = tickets.filter((t) => FINISHED_STATUSES.has(t.status)).length;
 
-  const products = React.useMemo(() => {
-    const seen = new Set<string>();
-    const list: string[] = [];
-    for (const t of tickets) {
-      const name = t.product?.trim();
-      if (name && !seen.has(name)) {
-        seen.add(name);
-        list.push(name);
-      }
-    }
-    return list;
-  }, [tickets]);
+  // TODO: substituir por dados reais quando o usuário estiver vinculado a uma empresa no backend
+  const products = ['Suporte Técnico', 'Consultoria', 'Manutenção Preventiva'];
 
   const handleStartSupport = async () => {
     try {
@@ -235,17 +224,7 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {ticketsPending ? (
-            <View className="bg-white w-[64vw] p-4 rounded-3xl h-28 justify-center items-center">
-              <ActivityIndicator color="#500D0D" />
-            </View>
-          ) : isErrorTickets ? (
-            <View className="bg-white w-full p-4 rounded-3xl">
-              <Text className="text-[#500D0D] font-bold text-base">
-                Não foi possível carregar suas soluções
-              </Text>
-            </View>
-          ) : products.length === 0 ? (
+          {products.length === 0 ? (
             <View className="bg-white w-full p-4 rounded-3xl">
               <Text className="text-[#83524F]">Nenhuma solução vinculada à sua conta ainda.</Text>
             </View>
