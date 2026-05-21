@@ -20,6 +20,7 @@ import { usePaginatedMessages } from '@/hooks/usePaginatedMessages';
 import { useSendTriageMessageMutation } from '@/hooks/useSendTriageMessageMutation';
 import { ChatMessageDto } from '@/services/live-chat';
 import { useQueryClient } from '@tanstack/react-query';
+import RatingModal from '@/components/RatingModal';
 
 type PrimitiveId = string | number;
 
@@ -57,6 +58,11 @@ type AttendanceResult = {
 };
 
 type AttendanceData = {
+  status?: string;
+  needs_evaluation?: boolean;
+  evaluation?: {
+    rating?: number;
+  } | null;
   triage?: TriageItem[] | null;
   current_message?: string | null;
   current_step_id?: string | null;
@@ -265,6 +271,7 @@ export default function ChatScreen() {
   });
 
   const [triageFinished, setTriageFinished] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -328,6 +335,14 @@ export default function ChatScreen() {
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [triageTimeline.length, humanMessages.length, mode]);
+
+  useEffect(() => {
+    const attendance = attendanceQuery.data;
+
+    if (mode === 'human' && attendance?.status === 'finished' && attendance?.needs_evaluation) {
+      setShowRatingModal(true);
+    }
+  }, [attendanceQuery.data, mode]);
 
   const connectionPresentation = getConnectionLabel(connectionStatus);
 
@@ -695,6 +710,7 @@ export default function ChatScreen() {
           </View>
         </View>
       )}
+      <RatingModal visible={showRatingModal} onClose={() => setShowRatingModal(false)} />
     </KeyboardAvoidingView>
   );
 }
