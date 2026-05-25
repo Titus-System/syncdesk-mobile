@@ -216,6 +216,28 @@ export default function TicketsScreen() {
     }
   }
 
+  function getFriendlyTicketId(ticket: TicketResponse) {
+    let prefix = 'CH';
+
+    switch (ticket.type) {
+      case 'access':
+        prefix = 'LA';
+        break;
+
+      case 'issue':
+        prefix = 'PF';
+        break;
+
+      case 'new_feature':
+        prefix = 'PN';
+        break;
+    }
+
+    const shortId = String(ticket.id).slice(-4).toUpperCase();
+
+    return `${prefix}-${shortId}`;
+  }
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       setDebouncedQuery(searchQuery);
@@ -363,7 +385,7 @@ export default function TicketsScreen() {
                         </Text>
 
                         <Text className="text-[#6B7280] text-xs" numberOfLines={1}>
-                          {ticket.id}
+                          {getFriendlyTicketId(ticket)}
                         </Text>
 
                         {/*<View className="self-start mt-2 bg-[#FFF4EE] px-3 py-1 rounded-full">

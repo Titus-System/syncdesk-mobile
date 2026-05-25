@@ -1,5 +1,6 @@
 import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useGetMe } from '@titus-system/syncdesk';
+import { apiFetch } from '@/lib/api';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,7 +20,7 @@ import { useLiveChatSocket } from '@/hooks/useLiveChatSocket';
 import { usePaginatedMessages } from '@/hooks/usePaginatedMessages';
 import { useSendTriageMessageMutation } from '@/hooks/useSendTriageMessageMutation';
 import { ChatMessageDto } from '@/services/live-chat';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import RatingModal from '@/components/RatingModal';
 
 type PrimitiveId = string | number;
@@ -44,6 +45,10 @@ type TriageItem = {
 type QuickReply = {
   value: string;
   label: string;
+};
+
+type TicketData = {
+  status?: string;
 };
 
 type CurrentInput = {
@@ -236,7 +241,6 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
 
 export default function ChatScreen() {
   const params = useLocalSearchParams<RouteParams>();
-
   const queryClient = useQueryClient();
   const getMeQuery = useGetMe() as GetMeQueryShape;
   const attendanceQuery = useAttendanceQuery(
@@ -246,6 +250,7 @@ export default function ChatScreen() {
         ? String(params.id)
         : undefined,
   ) as AttendanceQueryShape;
+
   const sendTriageMessageMutation = useSendTriageMessageMutation() as SendTriageMutationShape;
 
   const [triageText, setTriageText] = useState('');
@@ -272,6 +277,7 @@ export default function ChatScreen() {
 
   const [triageFinished, setTriageFinished] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingAlreadyOpened, setRatingAlreadyOpened] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -288,6 +294,15 @@ export default function ChatScreen() {
   }, [params.chatId, params.id, mode]);
 
   const ticketId = params.ticketId ? String(params.ticketId) : undefined;
+
+  const ticketQuery = useQuery({
+    queryKey: ['ticket', ticketId],
+    queryFn: () => apiFetch<TicketData>(`/tickets/${ticketId}`),
+    enabled: !!ticketId,
+  });
+
+  const { refetch: refetchAttendance } = attendanceQuery;
+  const { refetch: refetchTicket } = ticketQuery;
 
   const isReadOnly = Boolean(params.finishedAt);
 
@@ -337,12 +352,31 @@ export default function ChatScreen() {
   }, [triageTimeline.length, humanMessages.length, mode]);
 
   useEffect(() => {
-    const attendance = attendanceQuery.data;
+    const ticket = ticketQuery.data;
 
-    if (mode === 'human' && attendance?.status === 'finished' && attendance?.needs_evaluation) {
+    if (
+      mode === 'human' &&
+      ticket?.status === 'finished' &&
+      attendanceQuery.data?.needs_evaluation &&
+      !ratingAlreadyOpened
+    ) {
       setShowRatingModal(true);
+      setRatingAlreadyOpened(true);
     }
-  }, [attendanceQuery.data, mode]);
+  }, [ticketQuery.data, attendanceQuery.data?.needs_evaluation, mode, ratingAlreadyOpened]);
+
+  useEffect(() => {
+    if (mode !== 'human') {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      refetchAttendance();
+      refetchTicket();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [mode, refetchAttendance, refetchTicket]);
 
   const connectionPresentation = getConnectionLabel(connectionStatus);
 
@@ -454,6 +488,27 @@ export default function ChatScreen() {
   };
 
   const canSendHuman = connectionStatus === 'connected';
+
+  const handleRatingSubmit = async (rating: number) => {
+    try {
+      await apiFetch(`/chatbot/${triageId}/evaluation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating,
+        }),
+      });
+
+      setShowRatingModal(false);
+
+      await refetchAttendance();
+      await refetchTicket();
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível enviar a avaliação.');
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -710,7 +765,11 @@ export default function ChatScreen() {
           </View>
         </View>
       )}
-      <RatingModal visible={showRatingModal} onClose={() => setShowRatingModal(false)} />
+      <RatingModal
+        visible={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onSubmit={handleRatingSubmit}
+      />
     </KeyboardAvoidingView>
   );
 }
