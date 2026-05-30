@@ -6,9 +6,10 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onSubmit: (rating: number) => void;
+  title?: string | undefined;
 };
 
-export default function RatingModal({ visible, onClose, onSubmit }: Props) {
+export default function RatingModal({ visible, onClose, onSubmit, title }: Props) {
   const [rating, setRating] = useState(0);
 
   useEffect(() => {
@@ -20,13 +21,14 @@ export default function RatingModal({ visible, onClose, onSubmit }: Props) {
   return (
     <Modal visible={visible} transparent={true} animationType="fade">
       <View className="flex-1 bg-black/50 items-center justify-center">
-        <View className="w-[78%] h-[48%] rounded-2xl bg-white flex flex-col items-center justify-center px-4 py-2">
+        <View className="w-[78%] h-[48%] rounded-3xl bg-white flex flex-col items-center justify-center px-4 py-2">
           <View className="p-4 m-0 bg-[#ECD0BB] rounded-full mb-3">
             <AntDesign name="star" size={40} color="#D34008" />
           </View>
           <View className="w-full flex flex-col items-center justify-center gap-7">
-            <Text className="text-center font-bold text-2xl">
-              O atendimento foi concluído. Por favor, avalie sua experiência:
+            <Text className="text-center font-bold text-xl">
+              O atendimento{title ? ` "${title}"` : ''} foi concluído. Por favor, avalie sua
+              experiência:
             </Text>
             <View className="flex flex-row gap-3">
               {[1, 2, 3, 4, 5].map((starValue) => (

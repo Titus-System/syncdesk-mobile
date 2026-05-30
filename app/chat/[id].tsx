@@ -1,8 +1,9 @@
 import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useGetMe } from '@titus-system/syncdesk';
 import { apiFetch } from '@/lib/api';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useActiveTriage } from '@/contexts/ActiveTriageContext';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,8 +21,8 @@ import { useLiveChatSocket } from '@/hooks/useLiveChatSocket';
 import { usePaginatedMessages } from '@/hooks/usePaginatedMessages';
 import { useSendTriageMessageMutation } from '@/hooks/useSendTriageMessageMutation';
 import { ChatMessageDto } from '@/services/live-chat';
+import { useEvaluationWatcher } from '@/hooks/useEvaluationWatcher';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import RatingModal from '@/components/RatingModal';
 
 type PrimitiveId = string | number;
 
@@ -159,9 +160,15 @@ function dedupeMessages(messages: ChatMessageDto[]) {
   }
 
   return Array.from(map.values()).sort((a, b) => {
-    const aTime = new Date(getMessageTimestamp(a) ?? 0).getTime();
-    const bTime = new Date(getMessageTimestamp(b) ?? 0).getTime();
-    return aTime - bTime;
+    const normalize = (timestamp?: string | null) => {
+      if (!timestamp) return 0;
+
+      const normalized = timestamp.endsWith('Z') ? timestamp : `${timestamp}Z`;
+
+      return new Date(normalized).getTime();
+    };
+
+    return normalize(getMessageTimestamp(a)) - normalize(getMessageTimestamp(b));
   });
 }
 
@@ -170,16 +177,24 @@ function formatMessageTime(rawDate?: string | null) {
     return '--:--';
   }
 
-  const date = new Date(rawDate);
+  try {
+    // força UTC caso backend não envie Z
+    const normalized = rawDate.endsWith('Z') ? rawDate : `${rawDate}Z`;
 
-  if (Number.isNaN(date.getTime())) {
+    const date = new Date(normalized);
+
+    if (Number.isNaN(date.getTime())) {
+      return '--:--';
+    }
+
+    return new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    }).format(date);
+  } catch {
     return '--:--';
   }
-
-  return date.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function getConnectionLabel(status: string) {
@@ -243,6 +258,7 @@ export default function ChatScreen() {
   const params = useLocalSearchParams<RouteParams>();
   const queryClient = useQueryClient();
   const getMeQuery = useGetMe() as GetMeQueryShape;
+  const { setActiveTriageId } = useActiveTriage();
   const attendanceQuery = useAttendanceQuery(
     params.triageId
       ? String(params.triageId)
@@ -276,8 +292,6 @@ export default function ChatScreen() {
   });
 
   const [triageFinished, setTriageFinished] = useState(false);
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [ratingAlreadyOpened, setRatingAlreadyOpened] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -303,6 +317,27 @@ export default function ChatScreen() {
 
   const { refetch: refetchAttendance } = attendanceQuery;
   const { refetch: refetchTicket } = ticketQuery;
+
+  useEffect(() => {
+    if (mode !== 'human') return;
+
+    queryClient.invalidateQueries({
+      queryKey: ['ticket', ticketId],
+    });
+
+    queryClient.invalidateQueries({
+      queryKey: ['attendance', triageId],
+    });
+  }, [mode, ticketId, triageId, queryClient]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (mode !== 'human') return;
+
+      refetchAttendance();
+      refetchTicket();
+    }, [mode, refetchAttendance, refetchTicket]),
+  );
 
   const isReadOnly = Boolean(params.finishedAt);
 
@@ -352,18 +387,9 @@ export default function ChatScreen() {
   }, [triageTimeline.length, humanMessages.length, mode]);
 
   useEffect(() => {
-    const ticket = ticketQuery.data;
-
-    if (
-      mode === 'human' &&
-      ticket?.status === 'finished' &&
-      attendanceQuery.data?.needs_evaluation &&
-      !ratingAlreadyOpened
-    ) {
-      setShowRatingModal(true);
-      setRatingAlreadyOpened(true);
-    }
-  }, [ticketQuery.data, attendanceQuery.data?.needs_evaluation, mode, ratingAlreadyOpened]);
+    if (!triageId) return;
+    setActiveTriageId(triageId);
+  }, [triageId, setActiveTriageId]);
 
   useEffect(() => {
     if (mode !== 'human') {
@@ -488,27 +514,6 @@ export default function ChatScreen() {
   };
 
   const canSendHuman = connectionStatus === 'connected';
-
-  const handleRatingSubmit = async (rating: number) => {
-    try {
-      await apiFetch(`/chatbot/${triageId}/evaluation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          rating,
-        }),
-      });
-
-      setShowRatingModal(false);
-
-      await refetchAttendance();
-      await refetchTicket();
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível enviar a avaliação.');
-    }
-  };
 
   return (
     <KeyboardAvoidingView
@@ -765,11 +770,6 @@ export default function ChatScreen() {
           </View>
         </View>
       )}
-      <RatingModal
-        visible={showRatingModal}
-        onClose={() => setShowRatingModal(false)}
-        onSubmit={handleRatingSubmit}
-      />
     </KeyboardAvoidingView>
   );
 }

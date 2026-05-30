@@ -3,6 +3,7 @@ import { apiFetch } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { useGetMe, useTickets } from '@titus-system/syncdesk';
 import type { TicketResponse } from '@titus-system/syncdesk';
+import AttendanceModal from '@/components/AttendanceModal';
 import { router } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
 import {
@@ -29,6 +30,7 @@ type ConversationMessage = {
 
 type ConversationItem = {
   id: string | number;
+  triage_id?: string | number | null;
   started_at: string;
   finished_at?: string | null;
   ticket_id?: string | number | null;
@@ -48,6 +50,7 @@ type TriageBootstrap = {
 
 type SearchConversation = {
   id: string;
+  triage_id?: string;
   ticket_id: string;
   agent_id?: string | null;
   started_at: string;
@@ -57,6 +60,47 @@ type SearchConversation = {
     content?: string | null;
     timestamp?: string | null;
   }[];
+};
+
+type AttendanceModalData = {
+  title: string;
+  icon: keyof typeof FontAwesome6.glyphMap;
+  attendanceStatus: 'opened' | 'in_progress' | 'finished';
+  startDate?: string | null;
+  endDate?: string | null;
+  rating?: number | null;
+};
+
+type TicketDetailsResponse = {
+  type?: string;
+  product?: string | null;
+  triage_id?: string | number | null;
+  status?: string;
+  due_date?: string | null;
+};
+
+type TriageDetailsResponse = {
+  triage_id?: string | number;
+  status?: 'opened' | 'in_progress' | 'finished';
+  start_date?: string | null;
+  end_date?: string | null;
+  result?: {
+    type?: 'Ticket' | 'Resolved' | string;
+    ticket_id?: string | number | null;
+  };
+  evaluation?: {
+    rating?: number | null;
+  };
+};
+
+type TicketMessagesResponse = {
+  messages?: {
+    timestamp?: string | null;
+  }[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  has_next?: boolean;
 };
 
 function getLastMessage(conversation: ConversationItem): ConversationMessage | null {
@@ -85,12 +129,24 @@ async function searchConversations(query: string): Promise<SearchConversation[]>
   return [];
 }
 
+function normalizeUtcDate(dateString: string) {
+  // Algumas datas vêm sem "Z", então forçamos UTC manualmente
+
+  if (dateString.endsWith('Z')) {
+    return dateString;
+  }
+
+  return `${dateString}Z`;
+}
+
 function formatTime(rawDate?: string | null) {
   if (!rawDate) {
     return '--:--';
   }
 
-  const date = new Date(rawDate);
+  const normalizedDate = normalizeUtcDate(rawDate);
+
+  const date = new Date(normalizedDate);
 
   if (Number.isNaN(date.getTime())) {
     return '--:--';
@@ -122,6 +178,38 @@ function toJsonParam(value: unknown) {
   }
 }
 
+function getTicketTitle(type?: string, product?: string | null) {
+  switch (type) {
+    case 'issue':
+      return `${product ?? 'Produto'} - Falha`;
+
+    case 'new_feature':
+      return `${product ?? 'Produto'} - Nova funcionalidade`;
+
+    case 'access':
+      return 'Liberação de Acesso';
+
+    default:
+      return 'Atendimento';
+  }
+}
+
+function getTicketIcon(type?: string): keyof typeof FontAwesome6.glyphMap {
+  switch (type) {
+    case 'issue':
+      return 'triangle-exclamation';
+
+    case 'new_feature':
+      return 'lightbulb';
+
+    case 'access':
+      return 'universal-access';
+
+    default:
+      return 'headset';
+  }
+}
+
 export default function SupportScreen() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -133,6 +221,12 @@ export default function SupportScreen() {
     return () => clearTimeout(t);
   }, [search]);
   const { data: user, isLoading: isLoadingUser, isError: isErrorUser } = useGetMe();
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+
+  const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null);
+
+  const [attendanceModalData, setAttendanceModalData] = useState<AttendanceModalData | null>(null);
+
   const {
     data: conversations = [],
     isLoading: isLoadingConversations,
@@ -154,9 +248,10 @@ export default function SupportScreen() {
       return (
         searchData?.map((c) => ({
           id: c.id,
+          triage_id: c.triage_id ?? null,
           started_at: c.started_at,
           finished_at: c.finished_at ?? null,
-          ticket_id: c.ticket_id,
+          ticket_id: c.ticket_id ?? undefined,
           agent_id: c.agent_id ?? null,
           messages: c.messages ?? [],
         })) ?? []
@@ -172,13 +267,28 @@ export default function SupportScreen() {
     const items = (ticketsData as unknown as { items: TicketResponse[] })?.items ?? [];
     const map: Record<string, string> = {};
     for (const t of items) {
-      if (t.id && t.product) map[String(t.id)] = t.product;
+      if (t.id && t.product) {
+        map[String(t.id)] = String(t.product);
+      }
     }
     return map;
   }, [ticketsData]);
 
+  const ticketTriageMap = useMemo(() => {
+    const items = (ticketsData as unknown as { items: TicketResponse[] })?.items ?? [];
+
+    const map: Record<string, string> = {};
+
+    for (const t of items) {
+      if (t.id && t.triage_id) {
+        map[String(t.id)] = String(t.triage_id);
+      }
+    }
+
+    return map;
+  }, [ticketsData]);
+
   const filteredConversations = useMemo(() => {
-    // Quando está buscando, NÃO processa nada
     if (isSearching) {
       return typedConversations;
     }
@@ -187,8 +297,12 @@ export default function SupportScreen() {
 
     return [...typedConversations]
       .sort((a, b) => {
-        const aTime = new Date(getLastMessage(a)?.timestamp ?? a.started_at).getTime();
-        const bTime = new Date(getLastMessage(b)?.timestamp ?? b.started_at).getTime();
+        const aDate = getLastMessage(a)?.timestamp ?? a.started_at;
+        const bDate = getLastMessage(b)?.timestamp ?? b.started_at;
+
+        const aTime = new Date(normalizeUtcDate(aDate)).getTime();
+        const bTime = new Date(normalizeUtcDate(bDate)).getTime();
+
         return bTime - aTime;
       })
       .filter((conversation) => {
@@ -234,6 +348,130 @@ export default function SupportScreen() {
 
   const isLoading = isLoadingUser || isLoadingConversations || (isSearching && isLoadingSearch);
   const isError = isErrorUser || isErrorConversations;
+
+  async function handleOpenAttendanceModal(conversation: ConversationItem) {
+    try {
+      setSelectedConversation(conversation);
+
+      let title = 'Atendimento';
+
+      let icon: keyof typeof FontAwesome6.glyphMap = 'headset';
+
+      let attendanceStatus: 'opened' | 'in_progress' | 'finished' = 'opened';
+
+      let startDate: string | null = null;
+
+      let endDate: string | null = null;
+
+      let rating: number | null = null;
+
+      let triageId: string | number | null | undefined = conversation.triage_id;
+
+      let ticketData: TicketDetailsResponse | null = null;
+
+      if (conversation.ticket_id) {
+        ticketData = (await apiFetch(
+          `/tickets/${conversation.ticket_id}`,
+        )) as TicketDetailsResponse;
+
+        title = getTicketTitle(ticketData?.type, ticketData?.product);
+
+        icon = getTicketIcon(ticketData?.type);
+
+        triageId = ticketData?.triage_id;
+      }
+
+      if (triageId) {
+        const triageResponse = (await apiFetch(`/chatbot/${triageId}`)) as TriageDetailsResponse;
+
+        startDate = triageResponse?.start_date ?? null;
+
+        rating = triageResponse?.evaluation?.rating ?? null;
+
+        if (triageResponse?.result?.type === 'Resolved') {
+          attendanceStatus = 'finished';
+
+          endDate = triageResponse?.end_date ?? null;
+        } else if (triageResponse?.result?.type === 'Ticket') {
+          const normalizedTicketStatus = String(ticketData?.status ?? '')
+            .toLowerCase()
+            .trim();
+
+          if (
+            normalizedTicketStatus === 'finished' ||
+            normalizedTicketStatus === 'closed' ||
+            normalizedTicketStatus === 'resolved'
+          ) {
+            attendanceStatus = 'finished';
+
+            try {
+              const ticketMessagesResponse = (await apiFetch(
+                `/conversations/ticket/${conversation.ticket_id}/messages?page=1&limit=100`,
+              )) as TicketMessagesResponse;
+
+              const messages = ticketMessagesResponse?.messages ?? [];
+
+              const sortedMessages = [...messages].sort((a, b) => {
+                const aTime = a.timestamp ? new Date(normalizeUtcDate(a.timestamp)).getTime() : 0;
+
+                const bTime = b.timestamp ? new Date(normalizeUtcDate(b.timestamp)).getTime() : 0;
+
+                return bTime - aTime;
+              });
+
+              const lastMessageTimestamp = sortedMessages?.[0]?.timestamp
+                ? normalizeUtcDate(sortedMessages[0].timestamp!)
+                : null;
+
+              endDate = lastMessageTimestamp ?? triageResponse?.end_date ?? null;
+            } catch (messagesError) {
+              console.log('ERRO AO BUSCAR MENSAGENS:', JSON.stringify(messagesError, null, 2));
+
+              endDate = triageResponse?.end_date ?? null;
+            }
+          } else if (
+            normalizedTicketStatus === 'in_progress' ||
+            normalizedTicketStatus === 'in progress' ||
+            normalizedTicketStatus === 'ongoing' ||
+            normalizedTicketStatus === 'assigned'
+          ) {
+            attendanceStatus = 'in_progress';
+          } else {
+            attendanceStatus = 'opened';
+          }
+        } else {
+          const normalizedTriageStatus = String(triageResponse?.status ?? '')
+            .toLowerCase()
+            .trim();
+
+          if (normalizedTriageStatus === 'finished') {
+            attendanceStatus = 'finished';
+
+            endDate = triageResponse?.end_date ?? null;
+          } else if (normalizedTriageStatus === 'in_progress') {
+            attendanceStatus = 'in_progress';
+          } else {
+            attendanceStatus = 'opened';
+          }
+        }
+      }
+
+      setAttendanceModalData({
+        title,
+        icon,
+        attendanceStatus,
+        startDate,
+        endDate,
+        rating,
+      });
+
+      setShowAttendanceModal(true);
+    } catch (error) {
+      console.log('ERRO MODAL:', JSON.stringify(error, null, 2));
+
+      Alert.alert('Erro', 'Não foi possível carregar os detalhes do atendimento.');
+    }
+  }
 
   return (
     <View className="flex-1 bg-[#F4EAD9]">
@@ -311,25 +549,45 @@ export default function SupportScreen() {
                       shadowRadius: 6,
                       elevation: 3,
                     }}
-                    onPress={() =>
+                    onPress={async () => {
+                      let resolvedTriageId = conversation.triage_id
+                        ? String(conversation.triage_id)
+                        : undefined;
+
+                      if (!resolvedTriageId && conversation.ticket_id) {
+                        try {
+                          const ticket = (await apiFetch(
+                            `/tickets/${conversation.ticket_id}`,
+                          )) as TicketDetailsResponse;
+
+                          resolvedTriageId = ticket?.triage_id
+                            ? String(ticket.triage_id)
+                            : undefined;
+                        } catch (error) {
+                          console.log('ERRO AO BUSCAR TRIAGE DO TICKET:', error);
+                        }
+                      }
                       router.push({
                         pathname: '/chat/[id]',
                         params: {
                           id: String(conversation.id),
                           mode: 'human',
                           chatId: String(conversation.id),
+                          triageId: resolvedTriageId,
                           ticketId: conversation.ticket_id
                             ? String(conversation.ticket_id)
                             : undefined,
                           finishedAt: conversation.finished_at ?? undefined,
                         },
-                      })
-                    }
+                      });
+                    }}
                   >
-                    <View className="bg-[#D34008] w-16 h-16 rounded-full items-center justify-center shrink-0">
+                    <TouchableOpacity
+                      className="bg-[#D34008] w-16 h-16 rounded-full items-center justify-center shrink-0"
+                      onPress={() => handleOpenAttendanceModal(conversation)}
+                    >
                       <FontAwesome6 name="headset" size={26} color="white" />
-                    </View>
-
+                    </TouchableOpacity>
                     <View className="flex flex-col gap-2 w-[60%]">
                       <View className="flex flex-row items-center justify-between">
                         <Text className="font-extrabold text-2xl">
@@ -368,7 +626,17 @@ export default function SupportScreen() {
           </View>
         </TouchableOpacity>
       </ScrollView>
-
+      <AttendanceModal
+        visible={showAttendanceModal}
+        onClose={() => setShowAttendanceModal(false)}
+        conversation={selectedConversation}
+        title={attendanceModalData?.title ?? 'Atendimento'}
+        icon={attendanceModalData?.icon ?? 'headset'}
+        attendanceStatus={attendanceModalData?.attendanceStatus ?? 'opened'}
+        startDate={attendanceModalData?.startDate}
+        endDate={attendanceModalData?.endDate}
+        rating={attendanceModalData?.rating}
+      />
       <BottomAppBar />
     </View>
   );

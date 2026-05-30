@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import * as SecureStore from 'expo-secure-store';
 import { useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   ActivityIndicator,
   Platform,
@@ -11,6 +12,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Switch,
 } from 'react-native';
 
 import BottomAppBar from '@/components/BottomAppBar';
@@ -24,6 +26,13 @@ type MenuItemProps = {
   icon: React.ReactNode;
   label: string;
   onPress?: () => void;
+};
+
+type MenuItemSwitchProps = {
+  icon: React.ReactNode;
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
 };
 
 function MenuItem({ icon, label, onPress }: MenuItemProps) {
@@ -44,6 +53,25 @@ function MenuItem({ icon, label, onPress }: MenuItemProps) {
   );
 }
 
+function MenuItemSwitch({ icon, label, value, onValueChange }: MenuItemSwitchProps) {
+  return (
+    <View className="bg-white rounded-2xl px-4 py-4 flex-row items-center justify-between">
+      <View className="flex-row items-center gap-4">
+        <View className="bg-[#F4EAD9] rounded-full w-10 h-10 items-center justify-center">
+          {icon}
+        </View>
+        <Text className="text-slate-800 font-medium text-base">{label}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: '#d1d5db', true: '#500D0D' }}
+        thumbColor={value ? '#ffffff' : '#f4f3f4'}
+      />
+    </View>
+  );
+}
+
 function getInitials(name?: string | null, username?: string | null) {
   const source = name ?? username ?? '?';
 
@@ -61,7 +89,7 @@ async function fetchCompany(companyId: string) {
 
 export default function ProfileScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
+  const { isDarkMode, toggleTheme } = useTheme();
   const { data: rawUser, isLoading } = useGetMe();
   const { mutateAsync: logout } = useLogout();
   const { setUser } = useAuth();
@@ -111,66 +139,76 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#F4EAD9]">
-      <Toolbar />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <View className="bg-[#EDD5C0] pt-[145px] pb-6 items-center gap-3">
-          {isLoading ? (
-            <ActivityIndicator color="#500D0D" size="large" />
-          ) : (
-            <>
-              <View className="bg-[#C4A882] rounded-full w-24 h-24 items-center justify-center">
-                <Text className="text-white text-3xl font-bold">
-                  {getInitials(user?.name, user?.username)}
-                </Text>
-              </View>
+    <>
+      <View className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
+        <Toolbar />
+        <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+          <View className="bg-[#EDD5C0] pt-[145px] pb-6 items-center gap-3">
+            {isLoading ? (
+              <ActivityIndicator color="#500D0D" size="large" />
+            ) : (
+              <>
+                <View className="bg-[#C4A882] rounded-full w-24 h-24 items-center justify-center">
+                  <Text className="text-white text-3xl font-bold">
+                    {getInitials(user?.name, user?.username)}
+                  </Text>
+                </View>
 
-              <View className="items-center gap-1">
-                <Text className="text-slate-900 text-xl font-bold">
-                  {user?.name ?? user?.username ?? '—'}
-                </Text>
-                <Text className="text-slate-700 text-sm underline">{user?.email ?? '—'}</Text>
-                {user?.company_id && (
-                  <View className="flex flex-row">
-                    <Text className="text-slate-800 font-medium">Empresa: </Text>
-                    <Text className="text-slate-800 font-medium">
-                      {isLoadingCompany
-                        ? 'Carregando empresa...'
-                        : (tradeName ?? 'Empresa não encontrada')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </>
-          )}
-        </View>
+                <View className="items-center gap-1">
+                  <Text className="text-slate-900 text-xl font-bold">
+                    {user?.name ?? user?.username ?? '—'}
+                  </Text>
+                  <Text className="text-slate-700 text-sm underline">{user?.email ?? '—'}</Text>
+                  {user?.company_id && (
+                    <View className="flex flex-row">
+                      <Text className="text-slate-800 font-medium">Empresa: </Text>
+                      <Text className="text-slate-800 font-medium">
+                        {isLoadingCompany
+                          ? 'Carregando empresa...'
+                          : (tradeName ?? 'Empresa não encontrada')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
+          </View>
 
-        <View className="px-5 pt-5 gap-3">
-          <MenuItem
-            icon={<MaterialIcons name="computer" size={20} color="#500D0D" />}
-            label="Produtos/Serviços"
-            onPress={() => router.push('/list-products')}
-          />
-          <MenuItem
-            icon={<Feather name="lock" size={20} color="#500D0D" />}
-            label="Alterar senha"
-            onPress={() => router.push('/forgot-password')}
-          />
-          <MenuItem
-            icon={<MaterialCommunityIcons name="pencil-outline" size={23} color="#500D0D" />}
-            label="Editar conta"
-            onPress={() => router.push('/edit-profile')}
-          />
-          <TouchableOpacity
-            className="items-center py-4"
-            disabled={isLoggingOut}
-            onPress={handleLogout}
-          >
-            <Text className="text-slate-600 text-base">{isLoggingOut ? 'Saindo...' : 'Sair'}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-      <BottomAppBar />
-    </View>
+          <View className="px-5 pt-5 gap-3">
+            <MenuItem
+              icon={<MaterialIcons name="computer" size={20} color="#500D0D" />}
+              label="Produtos/Serviços"
+              onPress={() => router.push('/list-products')}
+            />
+            <MenuItem
+              icon={<Feather name="lock" size={20} color="#500D0D" />}
+              label="Alterar senha"
+              onPress={() => router.push('/forgot-password')}
+            />
+            <MenuItem
+              icon={<MaterialCommunityIcons name="pencil-outline" size={23} color="#500D0D" />}
+              label="Editar conta"
+              onPress={() => router.push('/edit-profile')}
+            />
+            <MenuItemSwitch
+              icon={<Feather name="moon" size={20} color="#500D0D" />}
+              label="Modo escuro"
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+            />
+            <TouchableOpacity
+              className="items-center py-4"
+              disabled={isLoggingOut}
+              onPress={handleLogout}
+            >
+              <Text className="text-slate-600 text-base">
+                {isLoggingOut ? 'Saindo...' : 'Sair'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+        <BottomAppBar />
+      </View>
+    </>
   );
 }
