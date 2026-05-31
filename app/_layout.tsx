@@ -1,61 +1,47 @@
-import { Stack, router } from 'expo-router';
+import { Stack } from 'expo-router';
 import '../global.css';
-import { apiFetch } from '@/lib/api';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import { useColorScheme } from 'nativewind';
-import { ActiveTriageProvider, useActiveTriage } from '@/contexts/ActiveTriageContext';
-import { useEvaluationWatcher } from '@/hooks/useEvaluationWatcher';
-import { useQuery, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { env } from '@/lib/env';
+
+import * as SplashScreen from 'expo-splash-screen';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, View } from 'react-native';
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configureLibrary } from '@titus-system/syncdesk';
-import * as SecureStore from 'expo-secure-store';
-import { Platform, Alert, View } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useColorScheme } from 'nativewind';
+
+import { AppOpeningAnimation } from '@/components/AppOpeningAnimation';
 import RatingModal from '@/components/RatingModal';
+import { ActiveTriageProvider, useActiveTriage } from '@/contexts/ActiveTriageContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { useEvaluationWatcher } from '@/hooks/useEvaluationWatcher';
+import { apiFetch } from '@/lib/api';
+import { notifyUnauthorized } from '@/lib/auth-events';
+import { getStoredAccessToken, getStoredRefreshToken, setStoredTokens } from '@/lib/auth-storage';
+
+import { env } from '@/lib/env';
+
+void SplashScreen.preventAutoHideAsync();
+
+SplashScreen.setOptions({
+  duration: 500,
+  fade: true,
+});
 
 configureLibrary({
   baseURL: env.apiBaseURL,
-
-  getAccessToken: async () => {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem('access_token');
-    }
-
-    return SecureStore.getItemAsync('access_token');
-  },
-
-  getRefreshToken: async () => {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem('refresh_token');
-    }
-
-    return SecureStore.getItemAsync('refresh_token');
-  },
-
-  onTokensRefreshed: async (newAccess: string, newRefresh: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.setItem('access_token', newAccess);
-      localStorage.setItem('refresh_token', newRefresh);
-      return;
-    }
-
-    await SecureStore.setItemAsync('access_token', newAccess);
-    await SecureStore.setItemAsync('refresh_token', newRefresh);
-  },
-
+  getAccessToken: getStoredAccessToken,
+  getRefreshToken: getStoredRefreshToken,
+  onTokensRefreshed: setStoredTokens,
   onUnauthorized: async () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-    } else {
-      await SecureStore.deleteItemAsync('access_token');
-      await SecureStore.deleteItemAsync('refresh_token');
-    }
-
-    router.replace('/login');
+    await notifyUnauthorized();
   },
 });
+
+type TicketResponse = {
+  type?: string;
+  product?: string | null;
+};
 
 function getTicketTitle(type?: string, product?: string | null) {
   switch (type) {
@@ -73,29 +59,50 @@ function getTicketTitle(type?: string, product?: string | null) {
   }
 }
 
-type TicketResponse = {
-  type?: string;
-  product?: string | null;
-};
-
 function AppContent() {
-  const { activeTriageId } = useActiveTriage();
+  const { activeTriageId, clearActiveTriage } = useActiveTriage();
+  const { isReady, isAuthenticated } = useAuth();
+  const { isDarkMode, isThemeReady } = useTheme();
   const { setColorScheme } = useColorScheme();
-  const { isDarkMode } = useTheme();
+
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratingTitle, setRatingTitle] = useState<string | undefined>();
+  const [showOpeningAnimation, setShowOpeningAnimation] = useState(true);
+
+  const lastScheme = useRef<'dark' | 'light' | null>(null);
 
   useEffect(() => {
-    setColorScheme(isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
+    const nextScheme = isDarkMode ? 'dark' : 'light';
 
-  useEvaluationWatcher(activeTriageId, async (data) => {
+    if (lastScheme.current === nextScheme) return;
+
+    lastScheme.current = nextScheme;
+    setColorScheme(nextScheme);
+  }, [isDarkMode, setColorScheme]);
+
+  useEffect(() => {
+    if (isAuthenticated) return;
+
+    clearActiveTriage();
+    setShowRatingModal(false);
+    setRatingTitle(undefined);
+  }, [isAuthenticated, clearActiveTriage]);
+
+  useEffect(() => {
+    if (!isReady || !isThemeReady) return;
+
+    void (async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch {
+        // Evita crash caso o splash já tenha sido escondido pelo ambiente de desenvolvimento.
+      }
+    })();
+  }, [isReady, isThemeReady]);
+
+  useEvaluationWatcher(isAuthenticated ? activeTriageId : undefined, async (data) => {
     try {
       let title: string | undefined;
-
-      // =========================
-      // TICKET
-      // =========================
 
       if (data.result?.type === 'Ticket' && data.result?.ticket_id) {
         const ticket = await apiFetch<TicketResponse>(`/tickets/${data.result.ticket_id}`);
@@ -105,24 +112,19 @@ function AppContent() {
 
       setRatingTitle(title);
       setShowRatingModal(true);
-    } catch (error) {
+    } catch {
       setRatingTitle(undefined);
       setShowRatingModal(true);
     }
   });
 
   const handleSubmitRating = async (rating: number) => {
-    if (!activeTriageId) return;
+    if (!activeTriageId || !isAuthenticated) return;
 
     try {
       await apiFetch(`/chatbot/${activeTriageId}/evaluation`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          rating,
-        }),
+        body: JSON.stringify({ rating }),
       });
 
       setShowRatingModal(false);
@@ -131,8 +133,16 @@ function AppContent() {
     }
   };
 
+  const handleOpeningAnimationFinish = useCallback(() => {
+    setShowOpeningAnimation(false);
+  }, []);
+
+  if (!isReady || !isThemeReady) {
+    return <View className="flex-1 bg-[#2B0000]" />;
+  }
+
   return (
-    <View className="flex-1">
+    <View className="flex-1 bg-[#2B0000]">
       <Stack screenOptions={{ headerShown: false }} />
 
       <RatingModal
@@ -141,25 +151,37 @@ function AppContent() {
         onSubmit={handleSubmitRating}
         title={ratingTitle}
       />
+
+      {showOpeningAnimation ? (
+        <AppOpeningAnimation onFinish={handleOpeningAnimationFinish} />
+      ) : null}
     </View>
   );
 }
 
-/* =========================
-   ROOT LAYOUT
-========================= */
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 1000 * 30,
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+  );
 
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
           <ActiveTriageProvider>
             <AppContent />
           </ActiveTriageProvider>
-        </QueryClientProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

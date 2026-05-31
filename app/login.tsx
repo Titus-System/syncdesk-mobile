@@ -1,228 +1,228 @@
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useState } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  type TextInput as TextInputType,
 } from 'react-native';
 
-import { TERMS_TEXT } from '@/constants/terms';
+import syncdeskLogo from '@/assets/images/syncdesk.png';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiFetch } from '@/lib/api';
+import { clearStoredTokens, setStoredTokens } from '@/lib/auth-storage';
 import { getErrorMessage } from '@/lib/errors';
-import { useGetMe, useLogin } from '@titus-system/syncdesk';
+import { setPendingFirstAccessSession } from '@/lib/first-access-session';
 
 type AuthUser = Exclude<Parameters<ReturnType<typeof useAuth>['setUser']>[0], null>;
 
 type LoginResponse = {
   access_token: string;
   refresh_token: string;
+  must_change_password?: boolean;
+  must_accept_terms?: boolean;
 };
 
-type RefetchMeResponse = {
-  data?: AuthUser;
-  error?: unknown;
-};
+const HOME_ROUTE = '/(tabs)' as Href;
+const FIRST_ACCESS_ROUTE = '/first-access' as Href;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const passwordInputRef = useRef<TextInputType>(null);
 
   const { setUser } = useAuth();
-  const { mutateAsync: login, isPending } = useLogin();
-  const { refetch: refetchMe } = useGetMe();
 
-  const isFormValid = email.trim().length > 0 && password.length > 0 && acceptedTerms;
+  const isFormValid = email.trim().length > 0 && password.length > 0;
+  const isSubmitting = isLoading;
 
-  async function saveTokens(accessToken: string, refreshToken: string) {
-    if (Platform.OS === 'web') {
-      globalThis.localStorage?.setItem('access_token', accessToken);
-      globalThis.localStorage?.setItem('refresh_token', refreshToken);
-      return;
-    }
+  async function loadCurrentUser() {
+    return await apiFetch<AuthUser>('/auth/me');
+  }
 
-    await SecureStore.setItemAsync('access_token', accessToken);
-    await SecureStore.setItemAsync('refresh_token', refreshToken);
+  async function finishLoginNormally() {
+    const currentUser = await loadCurrentUser();
+
+    setUser(currentUser);
+    router.replace(HOME_ROUTE);
   }
 
   async function handleLogin() {
+    if (!isFormValid || isSubmitting) return;
+
     setErrorMsg('');
+    setIsLoading(true);
 
     try {
-      const result = (await login({
-        email: email.trim().toLowerCase(),
-        password,
-      })) as LoginResponse;
+      const result = await apiFetch<LoginResponse>(
+        '/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
+          }),
+        },
+        false,
+      );
 
       const accessToken = result.access_token;
       const refreshToken = result.refresh_token;
+      const mustAcceptTerms = Boolean(result.must_accept_terms);
+      const mustChangePassword = Boolean(result.must_change_password);
 
       if (!accessToken || !refreshToken) {
         throw new Error('Erro ao fazer login. Verifique suas credenciais.');
       }
 
-      await saveTokens(accessToken, refreshToken);
+      await setStoredTokens(accessToken, refreshToken);
 
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (mustAcceptTerms || mustChangePassword) {
+        setPendingFirstAccessSession({
+          accessToken,
+          refreshToken,
+          currentPassword: password,
+          mustAcceptTerms,
+          mustChangePassword,
+        });
 
-      const response = (await refetchMe()) as RefetchMeResponse;
+        router.replace(FIRST_ACCESS_ROUTE);
 
-      if (response.error) {
-        throw response.error;
+        return;
       }
 
-      if (!response.data) {
-        throw new Error('Não foi possível carregar os dados do usuário.');
-      }
-
-      setUser(response.data);
-      router.replace('/');
+      await finishLoginNormally();
     } catch (error: unknown) {
+      await clearStoredTokens();
+
+      setUser(null);
       setErrorMsg(getErrorMessage(error, 'Erro ao fazer login. Verifique suas credenciais.'));
+    } finally {
+      setIsLoading(false);
     }
   }
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-[#1C0505]"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="flex-1 bg-[#2B0000]"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
-      <View className="flex-1 justify-center px-6">
-        <View className="items-center mb-12">
-          <MaterialCommunityIcons name="layers" size={80} color="#E05500" />
-          <Text className="text-white text-4xl font-bold mt-4">SyncDesk</Text>
-          <Text className="text-white/60 text-base mt-2">Bem-vindo de volta!</Text>
-        </View>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="px-6 py-10">
+          <View className="items-center mb-12 shrink">
+            <Image source={syncdeskLogo} className="w-32 h-32" resizeMode="contain" />
 
-        <View className="gap-4">
-          <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
-            <Feather name="mail" size={20} color="rgba(255,255,255,0.5)" />
-            <TextInput
-              className="flex-1 text-white"
-              placeholder="Endereço de e-mail"
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
-              editable={!isPending}
-            />
+            <Text className="text-white text-4xl font-bold mt-2">SyncDesk</Text>
+
+            <Text className="text-white/60 text-base mt-2">Bem-vindo de volta!</Text>
           </View>
 
-          <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
-            <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
-            <TextInput
-              className="flex-1 text-white"
-              placeholder="Senha"
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              editable={!isPending}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity disabled={isPending} onPress={() => setShowPassword((prev) => !prev)}>
-              <Feather
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color="rgba(255,255,255,0.5)"
+          <View className="gap-4">
+            <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
+              <Feather name="mail" size={20} color="rgba(255,255,255,0.5)" />
+
+              <TextInput
+                className="flex-1 text-white"
+                placeholder="Endereço de e-mail"
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                blurOnSubmit={false}
+                value={email}
+                onChangeText={setEmail}
+                editable={!isSubmitting}
               />
+            </View>
+
+            <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
+              <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
+
+              <TextInput
+                ref={passwordInputRef}
+                className="flex-1 text-white"
+                placeholder="Senha"
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                textContentType="password"
+                returnKeyType="done"
+                onSubmitEditing={isFormValid && !isSubmitting ? handleLogin : undefined}
+                value={password}
+                onChangeText={setPassword}
+                editable={!isSubmitting}
+              />
+
+              <TouchableOpacity
+                disabled={isSubmitting}
+                onPress={() => setShowPassword((prev) => !prev)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                accessibilityRole="button"
+              >
+                <Feather
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="rgba(255,255,255,0.5)"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              className="self-end mt-2"
+              disabled={isSubmitting}
+              onPress={() => router.push('/forgot-password')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Recuperar senha"
+            >
+              <Text className="text-white/60 font-medium">Esqueceu a senha?</Text>
             </TouchableOpacity>
+
+            {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
           </View>
 
           <TouchableOpacity
-            className="self-end mt-2"
-            disabled={isPending}
-            onPress={() => router.push('/forgot-password')}
+            className={`rounded-2xl py-4 items-center mt-8 ${
+              isFormValid && !isSubmitting ? 'bg-[#E05500]' : 'bg-[#3D1010]'
+            }`}
+            disabled={!isFormValid || isSubmitting}
+            onPress={handleLogin}
+            accessibilityLabel="Entrar"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !isFormValid || isSubmitting, busy: isSubmitting }}
           >
-            <Text className="text-white/60 font-medium">Esqueceu a senha?</Text>
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="text-white font-bold text-base">Entrar</Text>
+            )}
           </TouchableOpacity>
-
-          <View className="flex-row items-center mt-2">
-            <TouchableOpacity
-              disabled={isPending}
-              onPress={() => setAcceptedTerms((prev) => !prev)}
-              className="mr-3"
-            >
-              <Feather
-                name={acceptedTerms ? 'check-square' : 'square'}
-                size={22}
-                color={acceptedTerms ? '#E05500' : 'rgba(255,255,255,0.5)'}
-              />
-            </TouchableOpacity>
-            <View className="flex-1 flex-row flex-wrap">
-              <Text className="text-white/60 text-sm">Li e aceito os </Text>
-              <TouchableOpacity disabled={isPending} onPress={() => setShowTermsModal(true)}>
-                <Text className="text-[#E05500] font-bold text-sm">Termos de Uso</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
         </View>
-
-        <TouchableOpacity
-          className={`rounded-2xl py-4 items-center mt-8 ${
-            isFormValid && !isPending ? 'bg-[#E05500]' : 'bg-[#3D1010]'
-          }`}
-          disabled={!isFormValid || isPending}
-          onPress={handleLogin}
-        >
-          {isPending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-bold text-base">Entrar</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <Modal
-        animationType="fade"
-        transparent
-        visible={showTermsModal}
-        onRequestClose={() => setShowTermsModal(false)}
-      >
-        <View className="flex-1 justify-center bg-black/80 px-5">
-          <View className="bg-[#1C0505] rounded-[32px] p-7 border border-[#3D1010] max-h-[80%]">
-            <Text className="text-white text-3xl font-bold mb-4">Termos de Uso</Text>
-            <ScrollView className="mb-6">
-              <Text className="text-white/80 leading-7 text-base">{TERMS_TEXT}</Text>
-            </ScrollView>
-
-            <View className="flex-row justify-end gap-4">
-              <TouchableOpacity
-                onPress={() => setShowTermsModal(false)}
-                className="py-3 px-6 rounded-2xl bg-[#3D1010]"
-              >
-                <Text className="text-white font-medium text-base">Fechar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setAcceptedTerms(true);
-                  setShowTermsModal(false);
-                }}
-                className="py-3 px-6 rounded-2xl bg-[#E05500]"
-              >
-                <Text className="text-white font-bold text-base">Aceitar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

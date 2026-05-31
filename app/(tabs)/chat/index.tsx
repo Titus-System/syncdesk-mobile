@@ -1,11 +1,15 @@
-import { Entypo, FontAwesome6 } from '@expo/vector-icons';
-import { apiFetch } from '@/lib/api';
-import { useQuery } from '@tanstack/react-query';
-import { useGetMe, useTickets } from '@titus-system/syncdesk';
-import type { TicketResponse } from '@titus-system/syncdesk';
 import AttendanceModal from '@/components/AttendanceModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { useClientConversations } from '@/hooks/useClientConversations';
+import { useCreateTriageMutation } from '@/hooks/useCreateTriageMutation';
+import { apiFetch } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
+import { Entypo, FontAwesome6 } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import type { TicketResponse } from '@titus-system/syncdesk';
+import { useTickets } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,12 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-import BottomAppBar from '@/components/BottomAppBar';
-import Toolbar from '@/components/Toolbar';
-import { useClientConversations } from '@/hooks/useClientConversations';
-import { useCreateTriageMutation } from '@/hooks/useCreateTriageMutation';
-import { getErrorMessage } from '@/lib/errors';
 
 type ConversationMessage = {
   id?: string | number;
@@ -105,18 +103,17 @@ type TicketMessagesResponse = {
 
 function getLastMessage(conversation: ConversationItem): ConversationMessage | null {
   const messages = conversation.messages ?? [];
+
   return messages.length > 0 ? (messages[messages.length - 1] ?? null) : null;
 }
 
 async function searchConversations(query: string): Promise<SearchConversation[]> {
   const res = await apiFetch(`/conversations/search?search_query=${encodeURIComponent(query)}`);
 
-  // 🔒 garante que é array
   if (Array.isArray(res)) {
     return res as SearchConversation[];
   }
 
-  // 🔒 garante que é objeto com data
   if (
     res &&
     typeof res === 'object' &&
@@ -130,8 +127,6 @@ async function searchConversations(query: string): Promise<SearchConversation[]>
 }
 
 function normalizeUtcDate(dateString: string) {
-  // Algumas datas vêm sem "Z", então forçamos UTC manualmente
-
   if (dateString.endsWith('Z')) {
     return dateString;
   }
@@ -145,7 +140,6 @@ function formatTime(rawDate?: string | null) {
   }
 
   const normalizedDate = normalizeUtcDate(rawDate);
-
   const date = new Date(normalizedDate);
 
   if (Number.isNaN(date.getTime())) {
@@ -213,19 +207,22 @@ function getTicketIcon(type?: string): keyof typeof FontAwesome6.glyphMap {
 export default function SupportScreen() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null);
+  const [attendanceModalData, setAttendanceModalData] = useState<AttendanceModalData | null>(null);
+
+  const { user, isReady } = useAuth();
+
+  const isLoadingUser = !isReady;
+  const isErrorUser = false;
+
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timeout = setTimeout(() => {
       setDebouncedSearch(search.trim());
     }, 400);
 
-    return () => clearTimeout(t);
+    return () => clearTimeout(timeout);
   }, [search]);
-  const { data: user, isLoading: isLoadingUser, isError: isErrorUser } = useGetMe();
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
-
-  const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null);
-
-  const [attendanceModalData, setAttendanceModalData] = useState<AttendanceModalData | null>(null);
 
   const {
     data: conversations = [],
@@ -233,55 +230,44 @@ export default function SupportScreen() {
     isError: isErrorConversations,
     refetch,
   } = useClientConversations(user?.id ? String(user.id) : undefined);
+
   const isSearching = debouncedSearch.length >= 5;
+
   const { data: searchData, isLoading: isLoadingSearch } = useQuery<SearchConversation[]>({
     queryKey: ['conversation-search', debouncedSearch],
     enabled: isSearching,
-    queryFn: async () => {
-      const res = await searchConversations(debouncedSearch);
-
-      return res;
-    },
+    queryFn: () => searchConversations(debouncedSearch),
   });
+
   const typedConversations: ConversationItem[] = useMemo(() => {
     if (isSearching) {
       return (
-        searchData?.map((c) => ({
-          id: c.id,
-          triage_id: c.triage_id ?? null,
-          started_at: c.started_at,
-          finished_at: c.finished_at ?? null,
-          ticket_id: c.ticket_id ?? undefined,
-          agent_id: c.agent_id ?? null,
-          messages: c.messages ?? [],
+        searchData?.map((conversation) => ({
+          id: conversation.id,
+          triage_id: conversation.triage_id ?? null,
+          started_at: conversation.started_at,
+          finished_at: conversation.finished_at ?? null,
+          ticket_id: conversation.ticket_id ?? undefined,
+          agent_id: conversation.agent_id ?? null,
+          messages: conversation.messages ?? [],
         })) ?? []
       );
     }
 
     return (conversations as ConversationItem[]) ?? [];
   }, [isSearching, searchData, conversations]);
+
   const createTriageMutation = useCreateTriageMutation();
 
   const { data: ticketsData } = useTickets(user?.id ? { client_id: user.id } : {});
+
   const ticketProductMap = useMemo(() => {
     const items = (ticketsData as unknown as { items: TicketResponse[] })?.items ?? [];
     const map: Record<string, string> = {};
-    for (const t of items) {
-      if (t.id && t.product) {
-        map[String(t.id)] = String(t.product);
-      }
-    }
-    return map;
-  }, [ticketsData]);
 
-  const ticketTriageMap = useMemo(() => {
-    const items = (ticketsData as unknown as { items: TicketResponse[] })?.items ?? [];
-
-    const map: Record<string, string> = {};
-
-    for (const t of items) {
-      if (t.id && t.triage_id) {
-        map[String(t.id)] = String(t.triage_id);
+    for (const ticket of items) {
+      if (ticket.id && ticket.product) {
+        map[String(ticket.id)] = String(ticket.product);
       }
     }
 
@@ -354,19 +340,12 @@ export default function SupportScreen() {
       setSelectedConversation(conversation);
 
       let title = 'Atendimento';
-
       let icon: keyof typeof FontAwesome6.glyphMap = 'headset';
-
       let attendanceStatus: 'opened' | 'in_progress' | 'finished' = 'opened';
-
       let startDate: string | null = null;
-
       let endDate: string | null = null;
-
       let rating: number | null = null;
-
       let triageId: string | number | null | undefined = conversation.triage_id;
-
       let ticketData: TicketDetailsResponse | null = null;
 
       if (conversation.ticket_id) {
@@ -375,9 +354,7 @@ export default function SupportScreen() {
         )) as TicketDetailsResponse;
 
         title = getTicketTitle(ticketData?.type, ticketData?.product);
-
         icon = getTicketIcon(ticketData?.type);
-
         triageId = ticketData?.triage_id;
       }
 
@@ -385,12 +362,10 @@ export default function SupportScreen() {
         const triageResponse = (await apiFetch(`/chatbot/${triageId}`)) as TriageDetailsResponse;
 
         startDate = triageResponse?.start_date ?? null;
-
         rating = triageResponse?.evaluation?.rating ?? null;
 
         if (triageResponse?.result?.type === 'Resolved') {
           attendanceStatus = 'finished';
-
           endDate = triageResponse?.end_date ?? null;
         } else if (triageResponse?.result?.type === 'Ticket') {
           const normalizedTicketStatus = String(ticketData?.status ?? '')
@@ -413,7 +388,6 @@ export default function SupportScreen() {
 
               const sortedMessages = [...messages].sort((a, b) => {
                 const aTime = a.timestamp ? new Date(normalizeUtcDate(a.timestamp)).getTime() : 0;
-
                 const bTime = b.timestamp ? new Date(normalizeUtcDate(b.timestamp)).getTime() : 0;
 
                 return bTime - aTime;
@@ -446,7 +420,6 @@ export default function SupportScreen() {
 
           if (normalizedTriageStatus === 'finished') {
             attendanceStatus = 'finished';
-
             endDate = triageResponse?.end_date ?? null;
           } else if (normalizedTriageStatus === 'in_progress') {
             attendanceStatus = 'in_progress';
@@ -475,12 +448,11 @@ export default function SupportScreen() {
 
   return (
     <View className="flex-1 bg-[#F4EAD9]">
-      <Toolbar />
-
       <ScrollView contentContainerStyle={{ paddingTop: 140, paddingBottom: 130 }}>
         <View className="flex flex-col items-center">
-          <View className="bg-[#ECD0BB] flex flex-row items-center px-5 w-[94%] py-[4px] rounded-[48] mb-6">
+          <View className="bg-[#ECD0BB] flex flex-row items-center px-5 w-[94%] py-[4px] rounded-[48px] mb-6">
             <FontAwesome6 name="magnifying-glass" size={24} color="#9F7065" />
+
             <TextInput
               value={search}
               onChangeText={setSearch}
@@ -497,35 +469,37 @@ export default function SupportScreen() {
           </View>
 
           <View className="mt-3 gap-3 w-full">
-            {isLoading && (
+            {isLoading ? (
               <View className="py-10">
                 <ActivityIndicator color="#500D0D" />
               </View>
-            )}
+            ) : null}
 
-            {isError && !isLoading && (
+            {isError && !isLoading ? (
               <View className="px-5">
                 <TouchableOpacity onPress={() => refetch()} className="bg-white rounded-2xl p-5">
                   <Text className="text-[#500D0D] font-bold text-lg mb-1">
                     Não foi possível carregar seus atendimentos
                   </Text>
+
                   <Text className="text-[#9F7065]">Toque para tentar novamente.</Text>
                 </TouchableOpacity>
               </View>
-            )}
+            ) : null}
 
-            {!isLoading && !isError && !filteredConversations.length && (
+            {!isLoading && !isError && !filteredConversations.length ? (
               <View className="px-5">
                 <View className="bg-white rounded-2xl p-5">
                   <Text className="text-[#500D0D] font-bold text-lg mb-1">
                     Nenhum atendimento encontrado
                   </Text>
+
                   <Text className="text-[#9F7065]">
                     Inicie uma nova conversa pela URA no botão abaixo.
                   </Text>
                 </View>
               </View>
-            )}
+            ) : null}
 
             {!isLoading &&
               !isError &&
@@ -567,6 +541,7 @@ export default function SupportScreen() {
                           console.log('ERRO AO BUSCAR TRIAGE DO TICKET:', error);
                         }
                       }
+
                       router.push({
                         pathname: '/chat/[id]',
                         params: {
@@ -588,6 +563,7 @@ export default function SupportScreen() {
                     >
                       <FontAwesome6 name="headset" size={26} color="white" />
                     </TouchableOpacity>
+
                     <View className="flex flex-col gap-2 w-[60%]">
                       <View className="flex flex-row items-center justify-between">
                         <Text className="font-extrabold text-2xl">
@@ -598,8 +574,9 @@ export default function SupportScreen() {
 
                         <View className="flex flex-row items-center justify-between">
                           <Text className="text-base text-gray-500 flex-1 mr-2" numberOfLines={1}>
-                            {preview}
+                            {product ? `${product} • ${preview}` : preview}
                           </Text>
+
                           <Text className="text-[#9F7065] font-medium text-sm shrink-0">
                             {time}
                           </Text>
@@ -626,6 +603,7 @@ export default function SupportScreen() {
           </View>
         </TouchableOpacity>
       </ScrollView>
+
       <AttendanceModal
         visible={showAttendanceModal}
         onClose={() => setShowAttendanceModal(false)}
@@ -637,7 +615,6 @@ export default function SupportScreen() {
         endDate={attendanceModalData?.endDate}
         rating={attendanceModalData?.rating}
       />
-      <BottomAppBar />
     </View>
   );
 }

@@ -24,7 +24,7 @@ export default function Toolbar() {
     title = 'Conversas';
   } else if (pathname.startsWith('/tickets')) {
     title = 'Solicitações';
-  } else if (pathname === '/profile') {
+  } else if (pathname.startsWith('/profile')) {
     title = 'Perfil';
   }
 
