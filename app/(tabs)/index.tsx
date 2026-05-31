@@ -2,9 +2,10 @@ import Toolbar from '@/components/Toolbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCreateTriageMutation } from '@/hooks/useCreateTriageMutation';
+import { apiFetch } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TicketResponse } from '@titus-system/syncdesk';
 import { useGetMe, useTickets } from '@titus-system/syncdesk';
 import { router, useFocusEffect } from 'expo-router';
@@ -27,6 +28,29 @@ const OPEN_STATUSES = new Set(['open', 'awaiting_assignment', 'in_progress']);
 const WAITING_STATUSES = new Set(['waiting_for_provider', 'waiting_for_validation']);
 const FINISHED_STATUSES = new Set(['finished']);
 
+type CompanyProduct = {
+  id: number;
+  name: string;
+  description?: string | null;
+  created_at: string;
+};
+
+type CompanyProductsResponse = {
+  total: number;
+  page: number;
+  limit: number;
+  items: CompanyProduct[];
+  meta: {
+    timestamp: string;
+    success: boolean;
+    request_id: string;
+  };
+};
+
+async function fetchCompanyProducts(companyId: string) {
+  return apiFetch<CompanyProductsResponse>(`/companies/${companyId}/products`);
+}
+
 function resolveSearchRoute(term: string): '/tickets' | '/chat' | '/profile' | null {
   const normalized = term.trim().toLowerCase();
   if (!normalized) return null;
@@ -46,7 +70,7 @@ export default function HomeScreen() {
   const user = rawUser as AuthUser | undefined;
 
   const clientId = user?.id;
-    useFocusEffect(
+  useFocusEffect(
     React.useCallback(() => {
       void queryClient.refetchQueries({ type: 'active' });
 
@@ -99,8 +123,21 @@ export default function HomeScreen() {
   const waitingCount = tickets.filter((t) => WAITING_STATUSES.has(t.status)).length;
   const closedCount = tickets.filter((t) => FINISHED_STATUSES.has(t.status)).length;
 
-  // TODO: substituir por dados reais quando o usuário estiver vinculado a uma empresa no backend
-  const products = ['Suporte Técnico', 'Consultoria', 'Manutenção Preventiva'];
+  const companyId =
+    (rawUser as unknown as { company_id?: string | null } | undefined)?.company_id ?? null;
+
+  const { data: productsData, isLoading: isLoadingProducts } = useQuery<CompanyProductsResponse>({
+    queryKey: ['company-products', companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      if (!companyId) throw new Error('companyId missing');
+
+      return fetchCompanyProducts(companyId);
+    },
+    staleTime: 0,
+  });
+
+  const products = productsData?.items ?? [];
 
   const handleStartSupport = async () => {
     try {
@@ -235,12 +272,20 @@ export default function HomeScreen() {
                 <Text className="text-[#500D0D] font-semibold text-base dark:text-[#AE3408]">
                   {products.length}
                 </Text>
-                <FontAwesome6 name="chevron-right" size={14} color={isDarkMode ? '#AE3408' : "#500D0D"} />
+                <FontAwesome6
+                  name="chevron-right"
+                  size={14}
+                  color={isDarkMode ? '#AE3408' : '#500D0D'}
+                />
               </TouchableOpacity>
             )}
           </View>
 
-          {products.length === 0 ? (
+          {isLoadingProducts ? (
+            <View className="bg-white w-full p-6 rounded-3xl items-center dark:bg-[#551707]">
+              <ActivityIndicator color="#500D0D" />
+            </View>
+          ) : products.length === 0 ? (
             <View className="bg-white w-full p-4 rounded-3xl">
               <Text className="text-[#83524F]">Nenhuma solução vinculada à sua conta ainda.</Text>
             </View>
@@ -260,17 +305,27 @@ export default function HomeScreen() {
               scrollEventThrottle={16}
               className="flex flex-row"
             >
-              {products.map((name) => (
+              {products.map((product) => (
                 <View
-                  key={name}
+                  key={product.id}
                   className="bg-white w-[64vw] p-4 rounded-3xl flex flex-row items-center dark:bg-[#551707]"
                 >
                   <View className="bg-[#D34008] dark:bg-[#AE3408] rounded-full items-center justify-center w-20 h-20 mr-4">
                     <FontAwesome6 name="laptop-code" size={38} color="white" />
                   </View>
-                  <Text className="font-extrabold text-[#500D0D] text-xl flex-1 ml-3 dark:text-white">
-                    {name}
-                  </Text>
+                  <View className="flex-1 ml-3">
+                    <Text className="font-extrabold text-[#500D0D] text-xl dark:text-white">
+                      {product.name}
+                    </Text>
+                    {product.description ? (
+                      <Text
+                        className="text-[#83524F] text-sm mt-1 dark:text-[#D2CDCD]"
+                        numberOfLines={2}
+                      >
+                        {product.description}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
               ))}
             </ScrollView>
