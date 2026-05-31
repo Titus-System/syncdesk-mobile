@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SyncDesk",
-    "slug": "SyncDesk",
+    "name": "syncdesk",
+    "slug": "syncdesk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/syncdesk.png",
