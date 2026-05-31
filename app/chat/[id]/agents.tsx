@@ -86,7 +86,7 @@ export default function AgentsHistoryScreen() {
               className="flex flex-row gap-7 items-center h-[11vh] bg-white w-screen px-5 mb-2"
             >
               {/* Avatar */}
-              <View className="bg-[#D34008] w-20 h-20 rounded-[40px] items-center justify-center">
+              <View className="bg-[#D34008] dark:bg-[#AE3408] w-20 h-20 rounded-[40px] items-center justify-center">
                 <FontAwesome6 name="user" size={30} color="white" />
               </View>
 

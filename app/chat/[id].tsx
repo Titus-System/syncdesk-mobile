@@ -1,6 +1,7 @@
 import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useGetMe } from '@titus-system/syncdesk';
 import { apiFetch } from '@/lib/api';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useActiveTriage } from '@/contexts/ActiveTriageContext';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
@@ -255,6 +256,7 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
 }
 
 export default function ChatScreen() {
+  const { isDarkMode } = useTheme();
   const params = useLocalSearchParams<RouteParams>();
   const queryClient = useQueryClient();
   const getMeQuery = useGetMe() as GetMeQueryShape;
@@ -517,7 +519,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-[#F4EAD9]"
+      className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View className="bg-[#500D0D] px-5 pt-14 pb-4 flex-row items-center justify-between">
@@ -582,15 +584,15 @@ export default function ChatScreen() {
                 <View
                   className={`max-w-[82%] rounded-3xl px-4 py-3 ${
                     item.kind === 'ura'
-                      ? 'bg-orange-100'
+                      ? 'bg-orange-100 dark:bg-[#551707]'
                       : item.kind === 'client'
-                        ? 'bg-[#500D0D]'
-                        : 'bg-slate-200'
+                        ? 'bg-[#500D0D] dark:bg-[#AE3408]'
+                        : 'bg-slate-200 dark:bg-[#340B06]'
                   }`}
                 >
                   <Text
                     className={`text-base ${
-                      item.kind === 'client' ? 'text-white' : 'text-slate-800'
+                      item.kind === 'client' ? 'text-white' : 'text-slate-800 dark:text-[#D2CDCD]'
                     }`}
                   >
                     {item.content}
@@ -660,11 +662,15 @@ export default function ChatScreen() {
                 >
                   <View
                     className={`max-w-[82%] rounded-3xl px-4 py-3 ${
-                      outgoing ? 'bg-[#500D0D]' : 'bg-white'
+                      outgoing ? 'bg-[#500D0D]' : 'bg-white dark:bg-[#551707]'
                     }`}
                   >
                     <Text
-                      className={outgoing ? 'text-white text-base' : 'text-slate-800 text-base'}
+                      className={
+                        outgoing
+                          ? 'text-white/70 text-base'
+                          : 'text-slate-800 text-base dark:text-white'
+                      }
                     >
                       {message.content}
                     </Text>
@@ -687,13 +693,13 @@ export default function ChatScreen() {
       </ScrollView>
 
       {mode === 'triage' && !triageFinished && currentInput?.mode === 'quick_replies' && (
-        <View className="border-t border-[#E7D6C5] bg-white px-4 py-3 gap-2">
+        <View className="border-t border-[#E7D6C5] dark:border-[#4B2721] bg-white dark:bg-[#500D0D] px-4 py-3 gap-2">
           {(currentInput.quick_replies ?? []).map((reply) => (
             <TouchableOpacity
               key={reply.value}
               onPress={() => handleQuickReply(reply.value)}
               disabled={sendTriageMessageMutation.isPending}
-              className="bg-[#D34008] rounded-2xl py-3 px-4"
+              className="bg-[#D34008] dark:bg-[#AE3408] rounded-2xl py-3 px-4"
             >
               <Text className="text-white font-bold text-center">{reply.label}</Text>
             </TouchableOpacity>
@@ -721,7 +727,7 @@ export default function ChatScreen() {
               onPress={handleSendTriageText}
               disabled={!triageText.trim() || sendTriageMessageMutation.isPending}
               className={`rounded-full px-5 py-3 ${
-                triageText.trim() ? 'bg-[#D34008]' : 'bg-[#D9B9A4]'
+                triageText.trim() ? 'bg-[#D34008] dark:bg-[#AE3408]' : 'bg-[#D9B9A4]'
               }`}
             >
               <Text className="text-white font-bold">
@@ -733,20 +739,20 @@ export default function ChatScreen() {
       )}
 
       {mode === 'human' && isReadOnly && (
-        <View className="border-t border-[#E7D6C5] bg-white px-4 py-4">
-          <Text className="text-center text-[#9F7065] font-medium">
+        <View className="border-t border-[#E7D6C5] bg-white dark:bg-[#500D0D] dark:border-[#4B2721] px-4 py-4">
+          <Text className="text-center text-[#9F7065] dark:text-white/70 font-medium">
             Atendimento encerrado. Não é possível enviar novas mensagens.
           </Text>
         </View>
       )}
 
       {mode === 'human' && !isReadOnly && (
-        <View className="border-t border-[#E7D6C5] bg-white px-4 py-3">
+        <View className="border-t border-[#E7D6C5] dark:border-[#4B2721] bg-white dark:bg-[#500D0D] px-4 py-3">
           <View className="flex-row items-center gap-3">
-            <View className="flex-1 bg-[#F4EAD9] rounded-full px-4 py-2 flex-row items-center">
+            <View className="flex-1 bg-[#F4EAD9] dark:bg-[#360E07] rounded-full px-4 py-2 flex-row items-center">
               <FontAwesome6 name="message" size={16} color="#9F7065" />
               <TextInput
-                className="flex-1 ml-3 text-slate-800"
+                className="flex-1 ml-3 text-slate-800 dark:text-white"
                 placeholder={
                   canSendHuman ? 'Digite sua mensagem...' : 'Aguardando conexão em tempo real...'
                 }
@@ -762,7 +768,9 @@ export default function ChatScreen() {
               onPress={handleSendHumanMessage}
               disabled={!canSendHuman || !humanText.trim()}
               className={`rounded-full px-5 py-3 ${
-                canSendHuman && humanText.trim() ? 'bg-[#D34008]' : 'bg-[#D9B9A4]'
+                canSendHuman && humanText.trim()
+                  ? 'bg-[#D34008] dark:bg-[#AE3408]'
+                  : 'bg-[#D9B9A4] dark:bg-[#373737]'
               }`}
             >
               <Text className="text-white font-bold">Enviar</Text>

@@ -1,8 +1,11 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { useRef, useState } from 'react';
+import TitusImage from '../assets/images/titus.png';
 import {
   ActivityIndicator,
+  Modal,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +17,6 @@ import {
   type TextInput as TextInputType,
 } from 'react-native';
 
-import syncdeskLogo from '@/assets/images/syncdesk.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api';
 import { clearStoredTokens, setStoredTokens } from '@/lib/auth-storage';
@@ -125,13 +127,17 @@ export default function LoginScreen() {
         automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
       >
-        <View className="px-6 py-10">
+        <View className="flex-1 justify-center px-6 py-10">
           <View className="items-center mb-12 shrink">
-            <Image source={syncdeskLogo} className="w-32 h-32" resizeMode="contain" />
+            <Image source={TitusImage} className="w-32 h-32" resizeMode="contain" />
 
-            <Text className="text-white text-4xl font-bold mt-2">SyncDesk</Text>
-
-            <Text className="text-white/60 text-base mt-2">Bem-vindo de volta!</Text>
+            <Text className="text-white text-center text-4xl font-bold mt-4">
+              Bem-vindo(a) ao SyncDesk!
+            </Text>
+            <Text className="text-white/60 text-base text-center mt-4">
+              A Pro4Tech está aqui para ajudar. Inicie um atendimento e resolva seus problemas de
+              forma simples e rápida.
+            </Text>
           </View>
 
           <View className="gap-4">

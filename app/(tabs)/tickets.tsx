@@ -1,5 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api';
+import Toolbar from '@/components/Toolbar';
+import { useTheme } from '@/contexts/ThemeContext';
 import { FontAwesome, FontAwesome6, MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import type { TicketCriticality, TicketResponse, TicketStatus } from '@titus-system/syncdesk';
@@ -183,6 +185,8 @@ export default function TicketsScreen() {
   const defaultTickets: TicketResponse[] = Array.isArray(data) ? data : (data?.items ?? []);
   const ticketsBase = isSearchActive ? (searchData ?? []) : defaultTickets;
 
+  const { isDarkMode } = useTheme();
+
   const tickets = ticketsBase
     .filter((ticket) => {
       if (selectedStatus && ticket.status !== selectedStatus) {
@@ -281,7 +285,8 @@ export default function TicketsScreen() {
   }, [searchQuery]);
 
   return (
-    <View className="flex-1 bg-[#F4EAD9]">
+    <View className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
+      <Toolbar />
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -293,13 +298,17 @@ export default function TicketsScreen() {
           alignItems: 'center',
         }}
       >
-        <View className="bg-[#ECD0BB] flex-row items-center px-5 w-[94%] py-1 rounded-[48px] mb-4">
-          <FontAwesome6 name="magnifying-glass" size={22} color="#9F7065" />
+        <View className="bg-[#ECD0BB] dark:bg-[#360E07] flex-row items-center px-5 w-[94%] py-1 rounded-[48px] mb-4 dark:border-[1px] dark:border-[#4B2721]">
+          <FontAwesome6
+            name="magnifying-glass"
+            size={22}
+            color={isDarkMode ? '#A69491' : '#9F7065'}
+          />
 
           <TextInput
             placeholder="Pesquise para encontrar o que deseja"
-            placeholderTextColor="#9F7065"
-            className="flex-1 ml-2 text-[#500D0D]"
+            placeholderTextColor={isDarkMode ? '#A69491' : '#9F7065'}
+            className="flex-1 ml-2 text-[#500D0D] dark:text-white"
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={{
@@ -320,17 +329,22 @@ export default function TicketsScreen() {
           <View className="flex-1">
             <TouchableOpacity
               onPress={() => setOpenDropdown(openDropdown === 'criticality' ? null : 'criticality')}
-              className="bg-[#ECD0BB] px-3 py-2 rounded-lg"
+              className="bg-[#ECD0BB] dark:bg-[#360E07] px-3 py-2 rounded-3xl flex flex-row justify-between items-center"
             >
-              <Text className="text-[#9F7065]">
+              <Text className="text-[#9F7065] dark:text-[#A69491]">
                 {selectedCriticality
                   ? criticalityOptions.find((option) => option.value === selectedCriticality)?.label
                   : 'Criticidade'}
               </Text>
+              <MaterialIcons
+                name={openDropdown === 'criticality' ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+                size={28}
+                color={isDarkMode ? '#A69491' : '#9F7065'}
+              />
             </TouchableOpacity>
 
             {openDropdown === 'criticality' ? (
-              <View className="bg-white mt-1 rounded-lg shadow">
+              <View className="bg-white dark:bg-[#360E07] mt-1 rounded-3xl shadow">
                 {criticalityOptions.map((option) => (
                   <TouchableOpacity
                     key={option.value}
@@ -340,7 +354,7 @@ export default function TicketsScreen() {
                     }}
                     className="px-3 py-2"
                   >
-                    <Text>{option.label}</Text>
+                    <Text className="text-[#9F7065] dark:text-[#A69491]">{option.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -350,17 +364,22 @@ export default function TicketsScreen() {
           <View className="flex-1">
             <TouchableOpacity
               onPress={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
-              className="bg-[#ECD0BB] px-3 py-2 rounded-lg"
+              className="bg-[#ECD0BB] dark:bg-[#360E07] px-3 py-2 rounded-3xl flex flex-row justify-between items-center"
             >
-              <Text className="text-[#9F7065]">
+              <Text className="text-[#9F7065] dark:text-[#A69491]">
                 {selectedStatus
                   ? statusOptions.find((option) => option.value === selectedStatus)?.label
                   : 'Status'}
               </Text>
+              <MaterialIcons
+                name={openDropdown === 'status' ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+                size={28}
+                color={isDarkMode ? '#A69491' : '#9F7065'}
+              />
             </TouchableOpacity>
 
             {openDropdown === 'status' ? (
-              <View className="bg-white mt-1 rounded-lg shadow">
+              <View className="bg-white dark:bg-[#360E07] mt-1 rounded-3xl shadow">
                 {statusOptions.map((option) => (
                   <TouchableOpacity
                     key={option.value}
@@ -370,7 +389,7 @@ export default function TicketsScreen() {
                     }}
                     className="px-3 py-2"
                   >
-                    <Text>{option.label}</Text>
+                    <Text className="text-[#9F7065] dark:text-[#A69491]">{option.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -385,7 +404,7 @@ export default function TicketsScreen() {
               }}
               className="bg-red-100 px-3 py-2 rounded-lg"
             >
-              <Text className="text-red-600">✕</Text>
+              <Text className="text-red-600 dark:text-[#A69491]">✕</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -404,20 +423,23 @@ export default function TicketsScreen() {
             );
 
             return (
-              <View key={ticket.id} className="bg-white px-4 py-5 w-[94%] mb-4 rounded-2xl">
+              <View key={ticket.id} className="bg-white px-4 py-5 w-full mb-4 dark:bg-[#551707]">
                 <TouchableOpacity activeOpacity={0.8} onPress={() => toggleTicket(ticket.id)}>
                   <View className="flex-row items-start justify-between">
                     <View className="flex-row items-center flex-1 pr-2">
-                      <View className="bg-[#D34008] rounded-full items-center justify-center w-20 h-20">
+                      <View className="bg-[#D34008] dark:bg-[#AE3408] rounded-full items-center justify-center w-20 h-20">
                         {renderTicketIcon(ticket.type)}
                       </View>
 
                       <View className="ml-5 flex-1">
-                        <Text className="font-bold text-xl mb-2 text-[#1E293B]">
+                        <Text className="font-bold text-xl mb-2 text-[#1E293B] dark:text-white">
                           {getTicketTitle(ticket)}
                         </Text>
 
-                        <Text className="text-[#6B7280] text-xs" numberOfLines={1}>
+                        <Text
+                          className="text-[#6B7280] text-xs dark:text-[#D2CDCD]"
+                          numberOfLines={1}
+                        >
                           {getFriendlyTicketId(ticket)}
                         </Text>
                       </View>
@@ -426,32 +448,34 @@ export default function TicketsScreen() {
                     <MaterialIcons
                       name={isOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
                       size={38}
-                      color="#D34008"
+                      color={isDarkMode ? '#FFFFFF' : '#D34008'}
                     />
                   </View>
                 </TouchableOpacity>
 
                 {isOpen ? (
                   <View className="pt-5 px-1">
-                    <View className="h-[1px] bg-[#F2B6A0] w-full mb-5" />
+                    <View className="h-[1px] bg-[#F2B6A0] dark:bg-white w-full mb-5" />
 
-                    <Text className="text-[#6B7280] mb-5 text-sm leading-6">
+                    <Text className="text-[#6B7280] dark:text-[#CCB9B4] mb-5 text-sm leading-6">
                       {ticket.description || 'Sem descrição disponível.'}
                     </Text>
 
                     <View className="mb-5">
                       <View className="flex flex-row">
-                        <Text className="font-bold text-[#6B7280] text-sm">Produto/Serviço: </Text>
-
-                        <Text className="text-[#6B7280] text-sm">
+                        <Text className="font-bold text-[#6B7280] dark:text-[#CCB9B4] text-sm">
+                          Produto/Serviço:{' '}
+                        </Text>
+                        <Text className="text-[#6B7280] dark:text-[#CCB9B4] text-sm">
                           {ticket.product || 'Não informado'}
                         </Text>
                       </View>
 
                       <View className="flex flex-row">
-                        <Text className="font-bold text-[#6B7280] text-sm">Status: </Text>
-
-                        <Text className="text-[#6B7280] text-sm">
+                        <Text className="font-bold text-[#6B7280] dark:text-[#CCB9B4] text-sm">
+                          Status:{' '}
+                        </Text>
+                        <Text className="text-[#6B7280] dark:text-[#CCB9B4] text-sm">
                           {getTicketStatusLabel(ticket.status)}
                         </Text>
                       </View>
@@ -459,11 +483,10 @@ export default function TicketsScreen() {
                       {ticket.status === 'awaiting_assignment' &&
                       (queueData?.items?.length ?? 0) > 0 ? (
                         <View className="flex flex-row">
-                          <Text className="font-bold text-[#6B7280] text-sm">
+                          <Text className="font-bold text-[#6B7280] dark:text-[#CCB9B4] text-sm">
                             Posição na fila:{' '}
                           </Text>
-
-                          <Text className="text-[#6B7280] text-sm">
+                          <Text className="text-[#6B7280] dark:text-[#CCB9B4] text-sm">
                             {queuePositions[ticket.id]
                               ? `${queuePositions[ticket.id]}º`
                               : 'Acima de 100º'}
@@ -472,17 +495,19 @@ export default function TicketsScreen() {
                       ) : null}
 
                       <View className="flex flex-row">
-                        <Text className="font-bold text-[#6B7280] text-sm">Criticidade: </Text>
-
-                        <Text className="text-[#6B7280] text-sm">
+                        <Text className="font-bold text-[#6B7280] dark:text-[#CCB9B4] text-sm">
+                          Criticidade:{' '}
+                        </Text>
+                        <Text className="text-[#6B7280] dark:text-[#CCB9B4] text-sm">
                           {getTicketCriticalityLabel(ticket.criticality)}
                         </Text>
                       </View>
 
                       <View className="flex flex-row">
-                        <Text className="font-bold text-[#6B7280] text-sm">Data de início: </Text>
-
-                        <Text className="text-[#6B7280] text-sm">
+                        <Text className="font-bold text-[#6B7280] dark:text-[#CCB9B4] text-sm">
+                          Data de início:{' '}
+                        </Text>
+                        <Text className="text-[#6B7280] dark:text-[#CCB9B4] text-sm">
                           {new Date(ticket.creation_date + 'Z').toLocaleString('pt-BR', {
                             timeZone: 'America/Sao_Paulo',
                             day: '2-digit',
@@ -496,13 +521,13 @@ export default function TicketsScreen() {
                     </View>
 
                     <View>
-                      <Text className="font-bold text-[#6B7280] text-sm mb-1">
+                      <Text className="font-bold text-[#6B7280] text-sm mb-1 dark:text-[#CCB9B4]">
                         Notas do chamado:
                       </Text>
 
-                      <View className="bg-[#ECD0BB] py-2 px-3 rounded-lg">
+                      <View className="bg-[#ECD0BB] dark:bg-[#360E07] py-2 px-3 rounded-lg">
                         {visibleComments.length === 0 ? (
-                          <Text className="text-[#A07167] text-sm leading-6">
+                          <Text className="text-[#A07167] dark:text-[#A69491] text-sm leading-6">
                             Nenhuma nota registrada.
                           </Text>
                         ) : (
@@ -535,7 +560,7 @@ export default function TicketsScreen() {
                     </View>
 
                     <TouchableOpacity
-                      className="bg-[#D34008] mt-5 flex-row justify-center rounded-3xl"
+                      className="bg-[#D34008] dark:bg-[#AE3408] mt-5 flex-row justify-center rounded-3xl"
                       activeOpacity={0.85}
                       onPress={() => openTicketConversation(ticket)}
                     >

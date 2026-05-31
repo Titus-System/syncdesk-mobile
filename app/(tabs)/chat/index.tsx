@@ -1,5 +1,6 @@
 import AttendanceModal from '@/components/AttendanceModal';
 import { useAuth } from '@/contexts/AuthContext';
+import Toolbar from '@/components/Toolbar';
 import { useClientConversations } from '@/hooks/useClientConversations';
 import { useCreateTriageMutation } from '@/hooks/useCreateTriageMutation';
 import { apiFetch } from '@/lib/api';
@@ -10,6 +11,7 @@ import type { TicketResponse } from '@titus-system/syncdesk';
 import { useTickets } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   ActivityIndicator,
   Alert,
@@ -334,6 +336,7 @@ export default function SupportScreen() {
 
   const isLoading = isLoadingUser || isLoadingConversations || (isSearching && isLoadingSearch);
   const isError = isErrorUser || isErrorConversations;
+  const { isDarkMode } = useTheme();
 
   async function handleOpenAttendanceModal(conversation: ConversationItem) {
     try {
@@ -447,17 +450,22 @@ export default function SupportScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#F4EAD9]">
+    <View className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
+      <Toolbar />
       <ScrollView contentContainerStyle={{ paddingTop: 140, paddingBottom: 130 }}>
         <View className="flex flex-col items-center">
-          <View className="bg-[#ECD0BB] flex flex-row items-center px-5 w-[94%] py-[4px] rounded-[48px] mb-6">
-            <FontAwesome6 name="magnifying-glass" size={24} color="#9F7065" />
-
+          <View className="bg-[#ECD0BB] dark:bg-[#360E07] flex flex-row items-center px-5 w-[94%] py-[4px] rounded-[48px] mb-6 dark:border-[1px] dark:border-[#4B2721]">
+            <FontAwesome6
+              name="magnifying-glass"
+              size={24}
+              color={isDarkMode ? '#A69491' : '#9F7065'}
+            />
             <TextInput
               value={search}
               onChangeText={setSearch}
+              className="flex-1 ml-2 text-[#500D0D] dark:text-white"
               placeholder="Busque por um atendimento"
-              placeholderTextColor="#9F7065"
+              placeholderTextColor={isDarkMode ? '#A69491' : '#9F7065'}
               style={{
                 backgroundColor: 'transparent',
                 padding: 10,
@@ -515,7 +523,7 @@ export default function SupportScreen() {
                 return (
                   <TouchableOpacity
                     key={String(conversation.id)}
-                    className="flex flex-row gap-5 items-center bg-white mx-4 px-4 py-4 rounded-2xl"
+                    className="flex flex-row gap-5 items-center bg-white mx-4 px-4 py-4 w-full dark:bg-[#551707]"
                     style={{
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 2 },
@@ -558,7 +566,7 @@ export default function SupportScreen() {
                     }}
                   >
                     <TouchableOpacity
-                      className="bg-[#D34008] w-16 h-16 rounded-full items-center justify-center shrink-0"
+                      className="bg-[#D34008] dark:bg-[#AE3408] w-16 h-16 rounded-full items-center justify-center shrink-0"
                       onPress={() => handleOpenAttendanceModal(conversation)}
                     >
                       <FontAwesome6 name="headset" size={26} color="white" />
@@ -566,7 +574,7 @@ export default function SupportScreen() {
 
                     <View className="flex flex-col gap-2 w-[60%]">
                       <View className="flex flex-row items-center justify-between">
-                        <Text className="font-extrabold text-2xl">
+                        <Text className="font-extrabold text-2xl dark:text-white">
                           {conversation.finished_at
                             ? 'Atendimento encerrado'
                             : 'Atendimento em andamento'}
@@ -594,7 +602,7 @@ export default function SupportScreen() {
           onPress={handleStartSupport}
           disabled={createTriageMutation.isPending}
         >
-          <View className="bg-[#D34008] w-20 h-20 rounded-[40px] items-center justify-center">
+          <View className="bg-[#D34008] dark:bg-[#AE3408] w-20 h-20 rounded-[40px] items-center justify-center">
             {createTriageMutation.isPending ? (
               <ActivityIndicator color="white" />
             ) : (

@@ -66,7 +66,7 @@ export default function ListProductsScreen() {
   const products = data?.items ?? [];
 
   return (
-    <View className="flex-1 bg-[#F4EAD9]">
+    <View className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
       {/* HEADER */}
       <View className="bg-[#500D0D] px-5 pt-14 pb-4 flex-row items-center gap-3">
         <TouchableOpacity onPress={() => router.back()}>
@@ -77,7 +77,7 @@ export default function ListProductsScreen() {
       </View>
 
       {/* CONTENT */}
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120, paddingTop: 20 }}>
         {isLoading && <ActivityIndicator color="#500D0D" size="large" />}
 
         {isError && (
@@ -91,8 +91,10 @@ export default function ListProductsScreen() {
         )}
 
         {products.map((product) => (
-          <View key={product.id} className="bg-white rounded-2xl p-4 mb-3">
-            <Text className="text-slate-900 font-bold text-base">{product.name}</Text>
+          <View key={product.id} className="bg-white dark:bg-[#551707] w-full p-4 mb-5">
+            <Text className="text-slate-900 dark:text-white font-bold text-base">
+              {product.name}
+            </Text>
 
             {!!product.description && (
               <Text className="text-slate-600 text-sm mt-1">{product.description}</Text>

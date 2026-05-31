@@ -1,6 +1,7 @@
 import { AntDesign, Entypo, FontAwesome6 } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
 import { useState } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   Modal,
   Switch,
@@ -14,6 +15,7 @@ export default function Toolbar() {
   const pathname = usePathname();
   const [tutorialVisible, setTutorialVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const { isDarkMode } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   let title = 'SyncDesk';
@@ -54,13 +56,13 @@ export default function Toolbar() {
         <TouchableWithoutFeedback onPress={() => setTutorialVisible(false)}>
           <View className="flex-1 bg-black/50 justify-center items-center px-6">
             <TouchableWithoutFeedback>
-              <View className="bg-white rounded-3xl p-6 w-full">
+              <View className="bg-white rounded-3xl p-6 w-full dark:bg-[#551707] dark:border-[1px] dark:border-[#4B2721]">
                 <View className="flex-row items-center justify-between mb-5">
-                  <Text className="text-[#500D0D] font-extrabold text-xl">
+                  <Text className="text-[#500D0D] dark:text-white font-extrabold text-xl">
                     Como criar um chamado
                   </Text>
                   <TouchableOpacity onPress={() => setTutorialVisible(false)}>
-                    <AntDesign name="close" size={22} color="#500D0D" />
+                    <AntDesign name="close" size={22} color={isDarkMode ? '#D2CDCD' : '#500D0D'} />
                   </TouchableOpacity>
                 </View>
 
@@ -85,14 +87,16 @@ export default function Toolbar() {
                   },
                 ].map(({ step, icon, title: stepTitle, desc }) => (
                   <View key={step} className="flex-row items-start mb-4 gap-4">
-                    <View className="bg-[#D34008] w-10 h-10 rounded-full items-center justify-center shrink-0">
+                    <View className="bg-[#D34008] dark:bg-[#AE3408] w-10 h-10 rounded-full items-center justify-center shrink-0">
                       <FontAwesome6 name={icon} size={18} color="white" />
                     </View>
                     <View className="flex-1">
-                      <Text className="font-bold text-[#500D0D] text-base mb-1">
+                      <Text className="font-bold text-[#500D0D] dark:text-white text-base mb-1">
                         {step}. {stepTitle}
                       </Text>
-                      <Text className="text-[#9F7065] text-sm leading-5">{desc}</Text>
+                      <Text className="text-[#9F7065] text-sm leading-5 dark:text-[#D2CDCD]">
+                        {desc}
+                      </Text>
                     </View>
                   </View>
                 ))}
@@ -116,7 +120,7 @@ export default function Toolbar() {
                 <View className="flex-row items-center justify-between mb-5">
                   <Text className="text-[#500D0D] font-extrabold text-xl">Configurações</Text>
                   <TouchableOpacity onPress={() => setSettingsVisible(false)}>
-                    <AntDesign name="close" size={22} color="#500D0D" />
+                    <AntDesign name="close" size={22} color={isDarkMode ? '#FFFFF' : '#500D0D'} />
                   </TouchableOpacity>
                 </View>
 

@@ -7,5 +7,7 @@ export function useClientConversations(clientId?: string) {
     queryKey: ['chat', 'client-conversations', clientId],
     queryFn: () => getClientConversations(clientId as string),
     enabled: Boolean(clientId),
+    refetchInterval: 4000,
+    refetchIntervalInBackground: true,
   });
 }

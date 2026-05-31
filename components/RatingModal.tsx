@@ -21,12 +21,12 @@ export default function RatingModal({ visible, onClose, onSubmit, title }: Props
   return (
     <Modal visible={visible} transparent={true} animationType="fade">
       <View className="flex-1 bg-black/50 items-center justify-center">
-        <View className="w-[78%] h-[48%] rounded-3xl bg-white flex flex-col items-center justify-center px-4 py-2">
-          <View className="p-4 m-0 bg-[#ECD0BB] rounded-full mb-3">
+        <View className="w-[78%] h-[48%] rounded-3xl bg-white flex flex-col items-center justify-center px-4 py-2 dark:bg-[#551707] dark:border-[1px] dark:border-[#4B2721]">
+          <View className="p-4 m-0 bg-[#ECD0BB] dark:bg-[#340B06] rounded-full mb-3">
             <AntDesign name="star" size={40} color="#D34008" />
           </View>
           <View className="w-full flex flex-col items-center justify-center gap-7">
-            <Text className="text-center font-bold text-xl">
+            <Text className="text-center font-bold text-xl dark:text-white">
               O atendimento{title ? ` "${title}"` : ''} foi concluído. Por favor, avalie sua
               experiência:
             </Text>
@@ -45,7 +45,7 @@ export default function RatingModal({ visible, onClose, onSubmit, title }: Props
               <TouchableOpacity
                 onPress={() => onSubmit(rating)}
                 disabled={rating === 0}
-                className={`w-full flex justify-center items-center rounded-3xl py-[1.2vh] ${rating === 0 ? 'bg-[#D9B9A4]' : 'bg-[#D34008]'}`}
+                className={`w-full flex justify-center items-center rounded-3xl py-[1.2vh] ${rating === 0 ? 'bg-[#D9B9A4] dark:bg-[#373737]' : 'bg-[#D34008] dark:bg-[#AE3408]'}`}
               >
                 <Text className="text-white text-lg font-bold">Enviar</Text>
               </TouchableOpacity>
