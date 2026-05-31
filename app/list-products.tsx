@@ -1,10 +1,9 @@
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useGetMe } from '@titus-system/syncdesk';
 import { apiFetch } from '@/lib/api';
+import { Feather } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import { useGetMe } from '@titus-system/syncdesk';
+import { router } from 'expo-router';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 /* ---------------- TYPES ---------------- */
 

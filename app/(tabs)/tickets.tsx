@@ -1,14 +1,12 @@
-import BottomAppBar from '@/components/BottomAppBar';
-import Toolbar from '@/components/Toolbar';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiFetch } from '@/lib/api';
 import { FontAwesome, FontAwesome6, MaterialIcons } from '@expo/vector-icons';
-import type { TicketResponse, TicketStatus, TicketCriticality } from '@titus-system/syncdesk';
+import { useQuery } from '@tanstack/react-query';
+import type { TicketCriticality, TicketResponse, TicketStatus } from '@titus-system/syncdesk';
 import { useTickets } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '@/lib/api';
 
 type Comment = {
   comment_id: string;
@@ -43,21 +41,51 @@ async function searchTickets(query: string) {
   return apiFetch<TicketResponse[]>(`/tickets/search?${params.toString()}`);
 }
 
+function openTicketConversation(ticket: TicketResponse) {
+  const chatId = ticket.chat_ids?.[0];
+
+  if (!chatId) {
+    Alert.alert('Aviso', 'Nenhuma conversa encontrada para este chamado.');
+    return;
+  }
+
+  router.push({
+    pathname: '/chat/[id]',
+    params: {
+      id: chatId,
+      mode: 'human',
+      chatId,
+      ticketId: String(ticket.id),
+    },
+  });
+}
+
 export default function TicketsScreen() {
   const { user } = useAuth();
 
   const [openTicketId, setOpenTicketId] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<TicketStatus | undefined>(undefined);
+  const [selectedCriticality, setSelectedCriticality] = useState<TicketCriticality | undefined>(
+    undefined,
+  );
+  const [openDropdown, setOpenDropdown] = useState<'criticality' | 'status' | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
   function getTicketCriticalityLabel(criticality?: string | null) {
     switch (String(criticality ?? '').toLowerCase()) {
       case 'high':
         return 'Alta';
+
       case 'medium':
         return 'Média';
+
       case 'low':
         return 'Baixa';
+
       case 'critical':
         return 'Crítica';
+
       default:
         return criticality || 'Não informada';
     }
@@ -67,37 +95,43 @@ export default function TicketsScreen() {
     switch (String(status ?? '').toLowerCase()) {
       case 'open':
         return 'Aberto';
+
       case 'awaiting_assignment':
         return 'Aguardando atendente';
+
       case 'assigned':
         return 'Atribuído';
+
       case 'in_progress':
         return 'Em andamento';
+
       case 'waiting_for_customer':
       case 'waiting_customer':
         return 'Aguardando cliente';
+
       case 'waiting_for_provider':
         return 'Aguardando provedor';
+
       case 'waiting_for_validation':
         return 'Aguardando validação';
+
       case 'resolved':
         return 'Resolvido';
+
       case 'closed':
         return 'Fechado';
+
       case 'finished':
         return 'Finalizado';
+
       case 'cancelled':
         return 'Cancelado';
+
       default:
         return status || 'Sem status';
     }
   }
 
-  const [selectedStatus, setSelectedStatus] = useState<TicketStatus | undefined>(undefined);
-  const [selectedCriticality, setSelectedCriticality] = useState<TicketCriticality | undefined>(
-    undefined,
-  );
-  const [openDropdown, setOpenDropdown] = useState<'criticality' | 'status' | null>(null);
   const criticalityOptions: { label: string; value: TicketCriticality }[] = [
     { label: 'Alta', value: 'high' },
     { label: 'Média', value: 'medium' },
@@ -138,9 +172,6 @@ export default function TicketsScreen() {
     return map;
   }, [queueData]);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-
   const isSearchActive = debouncedQuery.length > 0;
 
   const { data: searchData, isLoading: isSearching } = useQuery({
@@ -150,7 +181,6 @@ export default function TicketsScreen() {
   });
 
   const defaultTickets: TicketResponse[] = Array.isArray(data) ? data : (data?.items ?? []);
-
   const ticketsBase = isSearchActive ? (searchData ?? []) : defaultTickets;
 
   const tickets = ticketsBase
@@ -189,12 +219,16 @@ export default function TicketsScreen() {
     switch (String(type ?? '').toLowerCase()) {
       case 'issue':
         return 'Falha';
+
       case 'new_feature':
         return 'Nova funcionalidade';
+
       case 'access':
         return 'Liberação de acesso';
+
       case 'request':
         return 'Solicitação';
+
       default:
         return type || 'Tipo não informado';
     }
@@ -248,8 +282,6 @@ export default function TicketsScreen() {
 
   return (
     <View className="flex-1 bg-[#F4EAD9]">
-      <Toolbar />
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -277,14 +309,14 @@ export default function TicketsScreen() {
             }}
           />
 
-          {searchQuery.length > 0 && (
+          {searchQuery.length > 0 ? (
             <TouchableOpacity onPress={() => setSearchQuery('')} className="pl-2">
               <MaterialIcons name="close" size={22} color="#9F7065" />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
+
         <View className="flex flex-row items-center gap-2 w-[94%] mb-4">
-          {/* DROPDOWN CRITICALITY */}
           <View className="flex-1">
             <TouchableOpacity
               onPress={() => setOpenDropdown(openDropdown === 'criticality' ? null : 'criticality')}
@@ -292,12 +324,12 @@ export default function TicketsScreen() {
             >
               <Text className="text-[#9F7065]">
                 {selectedCriticality
-                  ? criticalityOptions.find((o) => o.value === selectedCriticality)?.label
+                  ? criticalityOptions.find((option) => option.value === selectedCriticality)?.label
                   : 'Criticidade'}
               </Text>
             </TouchableOpacity>
 
-            {openDropdown === 'criticality' && (
+            {openDropdown === 'criticality' ? (
               <View className="bg-white mt-1 rounded-lg shadow">
                 {criticalityOptions.map((option) => (
                   <TouchableOpacity
@@ -312,10 +344,9 @@ export default function TicketsScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            )}
+            ) : null}
           </View>
 
-          {/* DROPDOWN STATUS */}
           <View className="flex-1">
             <TouchableOpacity
               onPress={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
@@ -323,12 +354,12 @@ export default function TicketsScreen() {
             >
               <Text className="text-[#9F7065]">
                 {selectedStatus
-                  ? statusOptions.find((o) => o.value === selectedStatus)?.label
+                  ? statusOptions.find((option) => option.value === selectedStatus)?.label
                   : 'Status'}
               </Text>
             </TouchableOpacity>
 
-            {openDropdown === 'status' && (
+            {openDropdown === 'status' ? (
               <View className="bg-white mt-1 rounded-lg shadow">
                 {statusOptions.map((option) => (
                   <TouchableOpacity
@@ -343,11 +374,10 @@ export default function TicketsScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            )}
+            ) : null}
           </View>
 
-          {/* LIMPAR FILTROS */}
-          {(selectedCriticality || selectedStatus) && (
+          {selectedCriticality || selectedStatus ? (
             <TouchableOpacity
               onPress={() => {
                 setSelectedCriticality(undefined);
@@ -357,8 +387,9 @@ export default function TicketsScreen() {
             >
               <Text className="text-red-600">✕</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
+
         {isLoading || isSearching ? (
           <Text className="text-[#6B7280] mt-10">Carregando tickets...</Text>
         ) : tickets.length === 0 && debouncedQuery.length > 0 ? (
@@ -368,7 +399,9 @@ export default function TicketsScreen() {
         ) : (
           tickets.map((ticket: TicketResponse) => {
             const isOpen = openTicketId === ticket.id;
-            const visibleComments = (ticket.comments ?? []).filter((c: Comment) => !c.internal);
+            const visibleComments = (ticket.comments ?? []).filter(
+              (comment: Comment) => !comment.internal,
+            );
 
             return (
               <View key={ticket.id} className="bg-white px-4 py-5 w-[94%] mb-4 rounded-2xl">
@@ -387,12 +420,6 @@ export default function TicketsScreen() {
                         <Text className="text-[#6B7280] text-xs" numberOfLines={1}>
                           {getFriendlyTicketId(ticket)}
                         </Text>
-
-                        {/*<View className="self-start mt-2 bg-[#FFF4EE] px-3 py-1 rounded-full">
-                          <Text className="text-[#D34008] text-xs font-bold">
-                            {getTicketStatusLabel(ticket.status)}
-                          </Text>
-                        </View>*/}
                       </View>
                     </View>
 
@@ -404,7 +431,7 @@ export default function TicketsScreen() {
                   </View>
                 </TouchableOpacity>
 
-                {isOpen && (
+                {isOpen ? (
                   <View className="pt-5 px-1">
                     <View className="h-[1px] bg-[#F2B6A0] w-full mb-5" />
 
@@ -415,6 +442,7 @@ export default function TicketsScreen() {
                     <View className="mb-5">
                       <View className="flex flex-row">
                         <Text className="font-bold text-[#6B7280] text-sm">Produto/Serviço: </Text>
+
                         <Text className="text-[#6B7280] text-sm">
                           {ticket.product || 'Não informado'}
                         </Text>
@@ -422,27 +450,30 @@ export default function TicketsScreen() {
 
                       <View className="flex flex-row">
                         <Text className="font-bold text-[#6B7280] text-sm">Status: </Text>
+
                         <Text className="text-[#6B7280] text-sm">
                           {getTicketStatusLabel(ticket.status)}
                         </Text>
                       </View>
 
                       {ticket.status === 'awaiting_assignment' &&
-                        (queueData?.items?.length ?? 0) > 0 && (
-                          <View className="flex flex-row">
-                            <Text className="font-bold text-[#6B7280] text-sm">
-                              Posição na fila:{' '}
-                            </Text>
-                            <Text className="text-[#6B7280] text-sm">
-                              {queuePositions[ticket.id]
-                                ? `${queuePositions[ticket.id]}º`
-                                : 'Acima de 100º'}
-                            </Text>
-                          </View>
-                        )}
+                      (queueData?.items?.length ?? 0) > 0 ? (
+                        <View className="flex flex-row">
+                          <Text className="font-bold text-[#6B7280] text-sm">
+                            Posição na fila:{' '}
+                          </Text>
+
+                          <Text className="text-[#6B7280] text-sm">
+                            {queuePositions[ticket.id]
+                              ? `${queuePositions[ticket.id]}º`
+                              : 'Acima de 100º'}
+                          </Text>
+                        </View>
+                      ) : null}
 
                       <View className="flex flex-row">
                         <Text className="font-bold text-[#6B7280] text-sm">Criticidade: </Text>
+
                         <Text className="text-[#6B7280] text-sm">
                           {getTicketCriticalityLabel(ticket.criticality)}
                         </Text>
@@ -450,6 +481,7 @@ export default function TicketsScreen() {
 
                       <View className="flex flex-row">
                         <Text className="font-bold text-[#6B7280] text-sm">Data de início: </Text>
+
                         <Text className="text-[#6B7280] text-sm">
                           {new Date(ticket.creation_date + 'Z').toLocaleString('pt-BR', {
                             timeZone: 'America/Sao_Paulo',
@@ -512,33 +544,12 @@ export default function TicketsScreen() {
                       </Text>
                     </TouchableOpacity>
                   </View>
-                )}
+                ) : null}
               </View>
             );
           })
         )}
       </ScrollView>
-
-      <BottomAppBar />
     </View>
   );
-}
-
-function openTicketConversation(ticket: TicketResponse) {
-  const chatId = ticket.chat_ids?.[0];
-
-  if (!chatId) {
-    Alert.alert('Aviso', 'Nenhuma conversa encontrada para este chamado.');
-    return;
-  }
-
-  router.push({
-    pathname: '/chat/[id]',
-    params: {
-      id: chatId,
-      mode: 'human',
-      chatId,
-      ticketId: String(ticket.id),
-    },
-  });
 }

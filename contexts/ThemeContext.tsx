@@ -1,58 +1,70 @@
-import { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
 type ThemeContextType = {
   isDarkMode: boolean;
+  isThemeReady: boolean;
   toggleTheme: (value: boolean) => void;
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
 const STORAGE_KEY = 'theme_mode';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isThemeReady, setIsThemeReady] = useState(false);
 
   useEffect(() => {
-    async function loadTheme() {
-      let stored: string | null = null;
+    void (async () => {
+      try {
+        let stored: string | null = null;
 
-      if (Platform.OS === 'web') {
-        stored = globalThis.localStorage?.getItem(STORAGE_KEY);
-      } else {
-        stored = await SecureStore.getItemAsync(STORAGE_KEY);
+        if (Platform.OS === 'web') {
+          stored = globalThis.localStorage?.getItem(STORAGE_KEY) ?? null;
+        } else {
+          stored = await SecureStore.getItemAsync(STORAGE_KEY);
+        }
+
+        if (stored) {
+          setIsDarkMode(stored === 'dark');
+        }
+      } finally {
+        setIsThemeReady(true);
       }
-
-      if (stored) {
-        setIsDarkMode(stored === 'dark');
-      }
-      setIsLoaded(true);
-    }
-
-    loadTheme();
+    })();
   }, []);
 
-  async function persistTheme(value: boolean) {
+  const persistTheme = useCallback(async (value: boolean) => {
     const themeValue = value ? 'dark' : 'light';
 
     if (Platform.OS === 'web') {
       globalThis.localStorage?.setItem(STORAGE_KEY, themeValue);
-    } else {
-      await SecureStore.setItemAsync(STORAGE_KEY, themeValue);
+      return;
     }
-  }
 
-  function toggleTheme(value: boolean) {
-    setIsDarkMode(value);
-    persistTheme(value);
-  }
+    await SecureStore.setItemAsync(STORAGE_KEY, themeValue);
+  }, []);
 
-  if (!isLoaded) return null;
-
-  return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>{children}</ThemeContext.Provider>
+  const toggleTheme = useCallback(
+    (value: boolean) => {
+      setIsDarkMode(value);
+      void persistTheme(value);
+    },
+    [persistTheme],
   );
+
+  const contextValue = useMemo(
+    () => ({
+      isDarkMode,
+      isThemeReady,
+      toggleTheme,
+    }),
+    [isDarkMode, isThemeReady, toggleTheme],
+  );
+
+  return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextType {

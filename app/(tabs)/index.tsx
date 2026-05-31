@@ -1,26 +1,21 @@
-import ProductDefaultImg from '@/assets/images/product_1.jpeg';
-import BottomAppBar from '@/components/BottomAppBar';
 import Toolbar from '@/components/Toolbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreateTriageMutation } from '@/hooks/useCreateTriageMutation';
 import { getErrorMessage } from '@/lib/errors';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { useGetMe, useTickets } from '@titus-system/syncdesk';
-import type { TicketResponse } from '@titus-system/syncdesk';
 import { useQueryClient } from '@tanstack/react-query';
+import type { TicketResponse } from '@titus-system/syncdesk';
+import { useGetMe, useTickets } from '@titus-system/syncdesk';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from 'react-native';
 
 type AuthUser = Exclude<Parameters<ReturnType<typeof useAuth>['setUser']>[0], null>;
@@ -207,64 +202,7 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
-
-        <View className="mt-5 px-3">
-          <View className="flex flex-row items-center justify-between mb-2">
-            <Text className="text-[#500D0D] font-medium text-xl">
-              Soluções utilizadas pela sua empresa
-            </Text>
-            {products.length > 1 && (
-              <TouchableOpacity
-                className="flex flex-row items-center gap-1"
-                onPress={handleProductsNext}
-              >
-                <Text className="text-[#500D0D] font-semibold text-base">{products.length}</Text>
-                <FontAwesome6 name="chevron-right" size={14} color="#500D0D" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {products.length === 0 ? (
-            <View className="bg-white w-full p-4 rounded-3xl">
-              <Text className="text-[#83524F]">Nenhuma solução vinculada à sua conta ainda.</Text>
-            </View>
-          ) : (
-            <ScrollView
-              ref={productsScrollRef}
-              horizontal
-              nestedScrollEnabled
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 11, paddingBottom: 8 }}
-              snapToAlignment="start"
-              snapToInterval={CARD_WIDTH}
-              decelerationRate="fast"
-              onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
-                productsScrollX.current = e.nativeEvent.contentOffset.x;
-              }}
-              scrollEventThrottle={16}
-              className="flex flex-row"
-            >
-              {products.map((name) => (
-                <View
-                  key={name}
-                  className="bg-white w-[64vw] p-3 rounded-3xl flex flex-row items-center"
-                >
-                  <Image
-                    source={ProductDefaultImg}
-                    style={{ width: 72, height: 72, borderRadius: 12 }}
-                    resizeMode="cover"
-                  />
-                  <Text className="font-extrabold text-[#500D0D] text-base flex-1 ml-3">
-                    {name}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          )}
-        </View>
       </ScrollView>
-
-      <BottomAppBar />
     </View>
   );
 }

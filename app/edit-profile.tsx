@@ -1,11 +1,11 @@
-import { usePatchUser, useGetMe } from '@titus-system/syncdesk';
-import { Text, TouchableOpacity, View, TextInput } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import type { UpdateUserDTO } from '@titus-system/syncdesk';
+import { useGetMe, usePatchUser } from '@titus-system/syncdesk';
+import { router } from 'expo-router';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
 export default function EditProfileScreen() {
   const { data: user } = useGetMe();
