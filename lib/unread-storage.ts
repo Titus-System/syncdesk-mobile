@@ -5,26 +5,21 @@ const KEY = 'chat_last_read';
 
 export async function getLastReadMap(): Promise<Record<string, string>> {
   try {
-    const raw =
+    const raw: string | null =
       Platform.OS === 'web'
         ? localStorage.getItem(KEY)
         : await SecureStore.getItemAsync(KEY);
 
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw) as Record<string, string>;
+
+    if (typeof parsed !== 'object' || parsed === null) {
+      return {};
+    }
+
+    return parsed;
   } catch {
     return {};
   }
-}
-
-export async function saveLastReadMap(
-  value: Record<string, string>,
-): Promise<void> {
-  const json = JSON.stringify(value);
-
-  if (Platform.OS === 'web') {
-    localStorage.setItem(KEY, json);
-    return;
-  }
-
-  await SecureStore.setItemAsync(KEY, json);
 }

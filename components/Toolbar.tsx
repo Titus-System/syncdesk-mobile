@@ -1,11 +1,10 @@
 import { useTheme } from '@/contexts/ThemeContext';
-import { AntDesign, Entypo, FontAwesome6 } from '@expo/vector-icons';
+import { AntDesign, FontAwesome6 } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
 import { useState } from 'react';
 import {
   Modal,
   ScrollView,
-  Switch,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -138,7 +137,6 @@ export default function Toolbar() {
   const pathname = usePathname();
   const [tutorialVisible, setTutorialVisible] = useState(false);
   const { isDarkMode } = useTheme();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [expandedGuide, setExpandedGuide] = useState<string | null>(() =>
     getActiveGuideKey(pathname),
   );

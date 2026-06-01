@@ -1,8 +1,7 @@
 import { FontAwesome6, Ionicons, MaterialCommunityIcons, Octicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import Toolbar from '@/components/Toolbar';
 
