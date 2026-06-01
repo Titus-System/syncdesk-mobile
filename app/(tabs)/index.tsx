@@ -46,12 +46,14 @@ export default function HomeScreen() {
   const user = rawUser as AuthUser | undefined;
 
   const clientId = user?.id;
-  useFocusEffect(
+    useFocusEffect(
     React.useCallback(() => {
       void queryClient.refetchQueries({ type: 'active' });
+
       const timer = setTimeout(() => {
         void queryClient.refetchQueries({ type: 'active' });
       }, 1500);
+
       return () => clearTimeout(timer);
     }, [queryClient]),
   );
@@ -233,7 +235,7 @@ export default function HomeScreen() {
                 <Text className="text-[#500D0D] font-semibold text-base dark:text-[#AE3408]">
                   {products.length}
                 </Text>
-                <FontAwesome6 name="chevron-right" size={14} color="#500D0D" />
+                <FontAwesome6 name="chevron-right" size={14} color={isDarkMode ? '#AE3408' : "#500D0D"} />
               </TouchableOpacity>
             )}
           </View>

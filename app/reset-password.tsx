@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -74,67 +75,74 @@ export default function NewPasswordScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-[#1C0505]"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <LinearGradient
+      colors={['#2A0404', '#4B0909','#BD3B0F',]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
     >
-      <View className="flex-1 px-6 pt-14 gap-8">
-        <TouchableOpacity onPress={() => router.back()} className="self-start">
-          <Feather name="arrow-left" size={24} color="white" />
-        </TouchableOpacity>
+      <KeyboardAvoidingView
+        className="flex-1 bg-[#1C0505]"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View className="flex-1 px-6 pt-14 gap-8">
+          <TouchableOpacity onPress={() => router.back()} className="self-start">
+            <Feather name="arrow-left" size={24} color="white" />
+          </TouchableOpacity>
 
-        <View className="items-center gap-4">
-          <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
-          <Text className="text-white text-3xl font-bold text-center">Criar nova senha</Text>
-          <Text className="text-white/60 text-sm text-center leading-5">
-            Sua nova senha deve seguir os requisitos definidos para garantir segurança.
-          </Text>
-        </View>
+          <View className="items-center gap-4">
+            <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
+            <Text className="text-white text-3xl font-bold text-center">Criar nova senha</Text>
+            <Text className="text-white/60 text-sm text-center leading-5">
+              Sua nova senha deve seguir os requisitos definidos para garantir segurança.
+            </Text>
+          </View>
 
-        <View className="gap-4">
-          <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
-            <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
-            <TextInput
-              className="flex-1 text-white"
-              placeholder="Nova Senha"
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              editable={!isLoading}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} disabled={isLoading}>
-              <Feather
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color="rgba(255,255,255,0.5)"
+          <View className="gap-4">
+            <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
+              <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
+              <TextInput
+                className="flex-1 text-white"
+                placeholder="Nova Senha"
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                editable={!isLoading}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
+              <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} disabled={isLoading}>
+                <Feather
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="rgba(255,255,255,0.5)"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View className="gap-2 px-1">
+              <Requirement met={hasMinLength} label="Mínimo de 8 caracteres" />
+              <Requirement met={hasUppercase} label="Pelo menos uma letra maiúscula" />
+              <Requirement met={hasNumberOrSymbol} label="Pelo menos um número ou símbolo" />
+            </View>
+
+            {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
+
+            <TouchableOpacity
+              className={`rounded-[40px] py-4 items-center ${
+                isValid && !isLoading ? 'bg-[#E05500]' : 'bg-[#373737]'
+              }`}
+              disabled={!isValid || isLoading}
+              onPress={handleResetPassword}
+            >
+              <Text className="text-white font-bold text-base">
+                {isLoading ? 'Salvando...' : 'Redefinir senha'}
+              </Text>
             </TouchableOpacity>
           </View>
-
-          <View className="gap-2 px-1">
-            <Requirement met={hasMinLength} label="Mínimo de 8 caracteres" />
-            <Requirement met={hasUppercase} label="Pelo menos uma letra maiúscula" />
-            <Requirement met={hasNumberOrSymbol} label="Pelo menos um número ou símbolo" />
-          </View>
-
-          {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
-
-          <TouchableOpacity
-            className={`rounded-2xl py-4 items-center ${
-              isValid && !isLoading ? 'bg-[#E05500]' : 'bg-[#3D1010]'
-            }`}
-            disabled={!isValid || isLoading}
-            onPress={handleResetPassword}
-          >
-            <Text className="text-white font-bold text-base">
-              {isLoading ? 'Salvando...' : 'Redefinir senha'}
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }

@@ -1,5 +1,7 @@
 import AttendanceModal from '@/components/AttendanceModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConversationUnreadCounts } from '@/hooks/useConversationUnreadCounts';
+import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import Toolbar from '@/components/Toolbar';
 import { useClientConversations } from '@/hooks/useClientConversations';
 import { useCreateTriageMutation } from '@/hooks/useCreateTriageMutation';
@@ -214,7 +216,7 @@ export default function SupportScreen() {
   const [attendanceModalData, setAttendanceModalData] = useState<AttendanceModalData | null>(null);
 
   const { user, isReady } = useAuth();
-
+  const { unreadMap } = useUnreadMessages();
   const isLoadingUser = !isReady;
   const isErrorUser = false;
 
@@ -232,6 +234,16 @@ export default function SupportScreen() {
     isError: isErrorConversations,
     refetch,
   } = useClientConversations(user?.id ? String(user.id) : undefined);
+
+  useEffect(() => {
+  if (!user?.id) return;
+
+  const interval = setInterval(() => {
+    refetch();
+  }, 4000);
+
+  return () => clearInterval(interval);
+}, [user?.id, refetch]);
 
   const isSearching = debouncedSearch.length >= 5;
 
@@ -258,6 +270,20 @@ export default function SupportScreen() {
 
     return (conversations as ConversationItem[]) ?? [];
   }, [isSearching, searchData, conversations]);
+
+  useConversationUnreadCounts(
+  typedConversations,
+  user?.id ? String(user.id) : null,
+);
+
+  useEffect(() => {
+  if (!typedConversations.length) return;
+
+  console.log(
+    '[CONVERSATION SAMPLE]',
+    JSON.stringify(typedConversations[0], null, 2),
+  );
+}, [typedConversations]);
 
   const createTriageMutation = useCreateTriageMutation();
 
@@ -520,6 +546,13 @@ export default function SupportScreen() {
                   ? (ticketProductMap[String(conversation.ticket_id)] ?? null)
                   : null;
 
+                const unreadCount =
+                  conversation.ticket_id
+                    ? unreadMap[
+                        String(conversation.ticket_id)
+                      ] ?? 0
+                    : 0;
+                
                 return (
                   <TouchableOpacity
                     key={String(conversation.id)}
@@ -565,12 +598,45 @@ export default function SupportScreen() {
                       });
                     }}
                   >
-                    <TouchableOpacity
-                      className="bg-[#D34008] dark:bg-[#AE3408] w-16 h-16 rounded-full items-center justify-center shrink-0"
-                      onPress={() => handleOpenAttendanceModal(conversation)}
-                    >
-                      <FontAwesome6 name="headset" size={26} color="white" />
-                    </TouchableOpacity>
+                    <View>
+                      <TouchableOpacity
+                        className="bg-[#D34008] dark:bg-[#AE3408] w-16 h-16 rounded-full items-center justify-center shrink-0"
+                        onPress={() => handleOpenAttendanceModal(conversation)}
+                      >
+                        <FontAwesome6
+                          name="headset"
+                          size={26}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+
+                      {unreadCount > 0 && (
+                        <View
+                          style={{
+                            position: 'absolute',
+                            top: -4,
+                            right: -4,
+                            minWidth: 22,
+                            height: 22,
+                            borderRadius: 11,
+                            backgroundColor: '#EF4444',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            paddingHorizontal: 6,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#FFF',
+                              fontSize: 12,
+                              fontWeight: '700',
+                            }}
+                          >
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
 
                     <View className="flex flex-col gap-2 w-[60%]">
                       <View className="flex flex-row items-center justify-between">

@@ -4,7 +4,7 @@ import '../global.css';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
-
+import { UnreadMessagesProvider } from '@/contexts/UnreadMessagesContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configureLibrary } from '@titus-system/syncdesk';
 import { useColorScheme } from 'nativewind';
@@ -177,9 +177,11 @@ export default function RootLayout() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <ActiveTriageProvider>
-            <AppContent />
-          </ActiveTriageProvider>
+          <UnreadMessagesProvider>
+            <ActiveTriageProvider>
+              <AppContent />
+            </ActiveTriageProvider>
+          </UnreadMessagesProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -201,8 +202,18 @@ export default function FirstAccessScreen() {
   }
 
   return (
+    <LinearGradient
+        colors={[
+          '#2A0404',
+          '#4B0909',
+          '#BD3B0F',
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flex: 1 }}
+      >
     <KeyboardAvoidingView
-      className="flex-1 bg-[#1C0505]"
+      className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -232,7 +243,7 @@ export default function FirstAccessScreen() {
           </View>
 
           {mustAcceptTerms ? (
-            <View className="bg-[#2B0000] rounded-[28px] border border-[#3D1010] p-5 gap-4">
+            <View className="bg-[#2B0000] rounded-[40px] border border-[#3D1010] px-4 py-2 gap-3">
               <Text className="text-white text-xl font-bold">Termos de Uso</Text>
 
               <ScrollView
@@ -272,7 +283,7 @@ export default function FirstAccessScreen() {
                 </Text>
               </View>
 
-              <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
                 <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
 
                 <TextInput
@@ -304,7 +315,7 @@ export default function FirstAccessScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
                 <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
 
                 <TextInput
@@ -334,7 +345,7 @@ export default function FirstAccessScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
                 <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
 
                 <TextInput
@@ -388,8 +399,8 @@ export default function FirstAccessScreen() {
           ) : null}
 
           <TouchableOpacity
-            className={`rounded-2xl py-4 items-center ${
-              canSubmit ? 'bg-[#E05500]' : 'bg-[#3D1010]'
+            className={`rounded-[40px] py-4 items-center ${
+              canSubmit ? 'bg-[#E05500]' : 'bg-[#373737]'
             }`}
             disabled={!canSubmit}
             onPress={handleFinishFirstAccess}
@@ -416,5 +427,6 @@ export default function FirstAccessScreen() {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }

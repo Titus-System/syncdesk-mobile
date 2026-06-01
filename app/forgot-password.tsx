@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -46,8 +47,18 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
+    <LinearGradient
+    colors={[
+      '#2A0404',
+      '#4B0909',
+      '#BD3B0F',
+    ]}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 1 }}
+    style={{ flex: 1 }}
+  >
     <KeyboardAvoidingView
-      className="flex-1 bg-[#1C0505]"
+      className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1 px-6 pt-14 gap-8">
@@ -98,5 +109,6 @@ export default function ForgotPasswordScreen() {
         )}
       </View>
     </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }

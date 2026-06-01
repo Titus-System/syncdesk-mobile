@@ -1,10 +1,64 @@
 import { FontAwesome6, Ionicons, MaterialCommunityIcons, Octicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Text } from 'react-native';
+import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import { View } from 'react-native';
-
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import Toolbar from '@/components/Toolbar';
 
 export default function TabsLayout() {
+  const { totalUnread } = useUnreadMessages();
+  function ChatTabIcon({
+  color,
+  focused,
+  unreadCount,
+}: {
+  color: string;
+  focused: boolean;
+  unreadCount: number;
+}) {
+  return (
+    <View>
+      <Ionicons
+        name={
+          focused
+            ? 'chatbubble-ellipses-sharp'
+            : 'chatbubble-ellipses-outline'
+        }
+        size={28}
+        color={color}
+      />
+
+      {unreadCount > 0 && (
+        <View
+          style={{
+            position: 'absolute',
+            top: -4,
+            right: -6,
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            backgroundColor: '#EF4444',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 4,
+          }}
+        >
+          <Text
+            style={{
+              color: '#FFF',
+              fontSize: 10,
+              fontWeight: '700',
+            }}
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
   return (
     <View className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
       <Toolbar />
@@ -62,10 +116,10 @@ export default function TabsLayout() {
           options={{
             title: 'Conversas',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons
-                name={focused ? 'chatbubble-ellipses-sharp' : 'chatbubble-ellipses-outline'}
-                size={28}
+              <ChatTabIcon
                 color={color}
+                focused={focused}
+                unreadCount={totalUnread}
               />
             ),
           }}

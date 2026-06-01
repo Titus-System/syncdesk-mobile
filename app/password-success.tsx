@@ -1,10 +1,21 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 export default function PasswordSuccessScreen() {
   return (
-    <View className="flex-1 bg-[#1C0505] items-center justify-center px-6 gap-8">
+    <LinearGradient
+    colors={[
+      '#2A0404',
+      '#4B0909',
+      '#BD3B0F',
+    ]}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 1 }}
+    style={{ flex: 1 }}
+  >
+    <View className="flex-1 items-center justify-center px-6 gap-8">
       <Feather name="check-circle" size={96} color="white" />
 
       <View className="items-center gap-3">
@@ -18,11 +29,12 @@ export default function PasswordSuccessScreen() {
       </View>
 
       <TouchableOpacity
-        className="bg-[#E05500] rounded-2xl py-4 items-center w-full"
+        className="bg-[#E05500] rounded-[40px] py-4 items-center w-full"
         onPress={() => router.replace('/login')}
       >
         <Text className="text-white font-bold text-base">Voltar ao login</Text>
       </TouchableOpacity>
     </View>
+    </LinearGradient>
   );
 }

@@ -137,7 +137,6 @@ function getActiveGuideKey(pathname: string) {
 export default function Toolbar() {
   const pathname = usePathname();
   const [tutorialVisible, setTutorialVisible] = useState(false);
-  const [settingsVisible, setSettingsVisible] = useState(false);
   const { isDarkMode } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [expandedGuide, setExpandedGuide] = useState<string | null>(() =>
@@ -164,9 +163,6 @@ export default function Toolbar() {
           <View className="flex flex-row gap-[3.5vw]">
             <TouchableOpacity onPress={() => setTutorialVisible(true)}>
               <AntDesign name="question-circle" size={25} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSettingsVisible(true)}>
-              <Entypo name="dots-three-vertical" size={25} color="white" />
             </TouchableOpacity>
           </View>
         </View>
@@ -199,7 +195,7 @@ export default function Toolbar() {
                     return (
                       <View
                         key={guide.key}
-                        className="mb-3 rounded-2xl overflow-hidden border border-[#F2E4D8] dark:border-[#4B2721]"
+                        className="mb-3 rounded-2xl overflow-hidden border border-[#F2E4D8] dark:border-[#340B06] dark:border-2"
                       >
                         <TouchableOpacity
                           activeOpacity={0.8}
@@ -248,49 +244,6 @@ export default function Toolbar() {
                     );
                   })}
                 </ScrollView>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      {/* Modal Configurações */}
-      <Modal
-        transparent
-        animationType="fade"
-        visible={settingsVisible}
-        onRequestClose={() => setSettingsVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSettingsVisible(false)}>
-          <View className="flex-1 bg-black/50 justify-center items-center px-6">
-            <TouchableWithoutFeedback>
-              <View className="bg-white rounded-3xl p-6 w-full">
-                <View className="flex-row items-center justify-between mb-5">
-                  <Text className="text-[#500D0D] font-extrabold text-xl">Configurações</Text>
-                  <TouchableOpacity onPress={() => setSettingsVisible(false)}>
-                    <AntDesign name="close" size={22} color={isDarkMode ? '#FFFFF' : '#500D0D'} />
-                  </TouchableOpacity>
-                </View>
-
-                <View className="flex-row items-center justify-between py-4 border-b border-[#F2E4D8]">
-                  <View className="flex-row items-center gap-3">
-                    <View className="bg-[#ECD0BB] w-10 h-10 rounded-full items-center justify-center">
-                      <FontAwesome6 name="bell" size={18} color="#D34008" />
-                    </View>
-                    <View>
-                      <Text className="font-bold text-[#500D0D] text-base">Notificações</Text>
-                      <Text className="text-[#9F7065] text-xs">
-                        {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={notificationsEnabled}
-                    onValueChange={setNotificationsEnabled}
-                    trackColor={{ false: '#D1D5DB', true: '#D34008' }}
-                    thumbColor="white"
-                  />
-                </View>
               </View>
             </TouchableWithoutFeedback>
           </View>

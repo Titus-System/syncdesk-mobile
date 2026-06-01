@@ -1,8 +1,9 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
-import TitusImage from '../assets/images/titus.png';
+import SyncdeskImage from '../assets/images/syncdesk.png';
 import {
   ActivityIndicator,
   Modal,
@@ -116,119 +117,130 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-[#2B0000]"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    <LinearGradient
+      colors={[
+  '#2A0404',
+  '#4B0909',
+  '#BD3B0F',
+]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
     >
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        <View className="flex-1 justify-center px-6 py-10">
-          <View className="items-center mb-12 shrink">
-            <Image source={TitusImage} className="w-32 h-32" resizeMode="contain" />
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 justify-center px-6 py-10">
+            <View className="items-center mb-12 shrink">
+              <Image source={SyncdeskImage} className="w-40 h-40" resizeMode="contain" />
 
-            <Text className="text-white text-center text-4xl font-bold mt-4">
-              Bem-vindo(a) ao SyncDesk!
-            </Text>
-            <Text className="text-white/60 text-base text-center mt-4">
-              A Pro4Tech está aqui para ajudar. Inicie um atendimento e resolva seus problemas de
-              forma simples e rápida.
-            </Text>
-          </View>
-
-          <View className="gap-4">
-            <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
-              <Feather name="mail" size={20} color="rgba(255,255,255,0.5)" />
-
-              <TextInput
-                className="flex-1 text-white"
-                placeholder="Endereço de e-mail"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                returnKeyType="next"
-                onSubmitEditing={() => passwordInputRef.current?.focus()}
-                blurOnSubmit={false}
-                value={email}
-                onChangeText={setEmail}
-                editable={!isSubmitting}
-              />
+              <Text className="text-white text-center text-4xl font-bold mt-4">
+                Bem-vindo(a) ao SyncDesk!
+              </Text>
+              <Text className="text-white/60 text-base text-center mt-4">
+                A Pro4Tech está aqui para ajudar. Inicie um atendimento e resolva seus problemas de
+                forma simples e rápida.
+              </Text>
             </View>
 
-            <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
-              <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
+            <View className="gap-4">
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
+                <Feather name="mail" size={20} color="rgba(255,255,255,0.5)" />
 
-              <TextInput
-                ref={passwordInputRef}
-                className="flex-1 text-white"
-                placeholder="Senha"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="password"
-                textContentType="password"
-                returnKeyType="done"
-                onSubmitEditing={isFormValid && !isSubmitting ? handleLogin : undefined}
-                value={password}
-                onChangeText={setPassword}
-                editable={!isSubmitting}
-              />
+                <TextInput
+                  className="flex-1 text-white"
+                  placeholder="Endereço de e-mail"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  blurOnSubmit={false}
+                  value={email}
+                  onChangeText={setEmail}
+                  editable={!isSubmitting}
+                />
+              </View>
+
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
+                <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
+
+                <TextInput
+                  ref={passwordInputRef}
+                  className="flex-1 text-white"
+                  placeholder="Senha"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="password"
+                  textContentType="password"
+                  returnKeyType="done"
+                  onSubmitEditing={isFormValid && !isSubmitting ? handleLogin : undefined}
+                  value={password}
+                  onChangeText={setPassword}
+                  editable={!isSubmitting}
+                />
+
+                <TouchableOpacity
+                  disabled={isSubmitting}
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  accessibilityRole="button"
+                >
+                  <Feather
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color="rgba(255,255,255,0.5)"
+                  />
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
+                className="self-end mt-2"
                 disabled={isSubmitting}
-                onPress={() => setShowPassword((prev) => !prev)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                onPress={() => router.push('/forgot-password')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
+                accessibilityLabel="Recuperar senha"
               >
-                <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color="rgba(255,255,255,0.5)"
-                />
+                <Text className="text-white/60 font-medium">Esqueceu a senha?</Text>
               </TouchableOpacity>
+
+              {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
             </View>
 
             <TouchableOpacity
-              className="self-end mt-2"
-              disabled={isSubmitting}
-              onPress={() => router.push('/forgot-password')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              className={`rounded-[40px] py-4 items-center mt-8 ${
+                isFormValid && !isSubmitting ? 'bg-[#E05500]' : 'bg-[#373737]'
+              }`}
+              disabled={!isFormValid || isSubmitting}
+              onPress={handleLogin}
+              accessibilityLabel="Entrar"
               accessibilityRole="button"
-              accessibilityLabel="Recuperar senha"
+              accessibilityState={{ disabled: !isFormValid || isSubmitting, busy: isSubmitting }}
             >
-              <Text className="text-white/60 font-medium">Esqueceu a senha?</Text>
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-white font-bold text-base">Entrar</Text>
+              )}
             </TouchableOpacity>
-
-            {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
           </View>
-
-          <TouchableOpacity
-            className={`rounded-2xl py-4 items-center mt-8 ${
-              isFormValid && !isSubmitting ? 'bg-[#E05500]' : 'bg-[#3D1010]'
-            }`}
-            disabled={!isFormValid || isSubmitting}
-            onPress={handleLogin}
-            accessibilityLabel="Entrar"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !isFormValid || isSubmitting, busy: isSubmitting }}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white font-bold text-base">Entrar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }

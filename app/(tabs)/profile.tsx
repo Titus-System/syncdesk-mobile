@@ -187,7 +187,7 @@ export default function ProfileScreen() {
             onPress={() => router.push(CHANGE_PASSWORD_ROUTE)}
           />
           <MenuItem
-            icon={<AntDesign name="moon" size={20} />}
+            icon={<FontAwesome5 name="user-edit" size={18} style={{ marginLeft: 5 }} />}
             label="Editar conta"
             onPress={() => router.push('/edit-profile')}
           />

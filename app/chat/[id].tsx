@@ -2,6 +2,7 @@ import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useGetMe } from '@titus-system/syncdesk';
 import { apiFetch } from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import { useActiveTriage } from '@/contexts/ActiveTriageContext';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
@@ -385,6 +386,42 @@ export default function ChatScreen() {
   );
 
   useEffect(() => {
+  if (!humanMessages.length) return;
+
+  console.log(
+    '[CHAT MESSAGE SAMPLE]',
+    JSON.stringify(humanMessages[humanMessages.length - 1], null, 2),
+  );
+}, [humanMessages]);
+
+  const { markConversationAsRead } = useUnreadMessages();
+
+const lastReadTimestampRef = useRef<string | null>(null);
+
+useEffect(() => {
+  if (mode !== 'human') return;
+  if (!ticketId) return;
+  if (!humanMessages.length) return;
+
+  const lastMessage = humanMessages[humanMessages.length - 1];
+
+  if (!lastMessage?.timestamp) return;
+
+  if (lastReadTimestampRef.current === lastMessage.timestamp) {
+    return;
+  }
+
+  lastReadTimestampRef.current = lastMessage.timestamp;
+
+  markConversationAsRead(ticketId, lastMessage.timestamp);
+}, [
+  mode,
+  ticketId,
+  humanMessages,
+  markConversationAsRead,
+]);
+
+  useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [triageTimeline.length, humanMessages.length, mode]);
 
@@ -708,12 +745,12 @@ export default function ChatScreen() {
       )}
 
       {mode === 'triage' && !triageFinished && currentInput?.mode === 'free_text' && (
-        <View className="border-t border-[#E7D6C5] bg-white px-4 py-3">
+        <View className="border-t border-[#E7D6C5] dark:border-[#4B2721] bg-white dark:bg-[#551707] px-4 py-3">
           <View className="flex-row items-center gap-3">
-            <View className="flex-1 bg-[#F4EAD9] rounded-full px-4 py-2 flex-row items-center">
+            <View className="flex-1 bg-[#F4EAD9] dark:bg-[#360E07] rounded-full px-4 py-2 flex-row items-center">
               <FontAwesome6 name="message" size={16} color="#9F7065" />
               <TextInput
-                className="flex-1 ml-3 text-slate-800"
+                className="flex-1 ml-3 text-slate-800 dark:text-white"
                 placeholder="Digite sua resposta..."
                 placeholderTextColor="#9F7065"
                 value={triageText}
@@ -727,7 +764,7 @@ export default function ChatScreen() {
               onPress={handleSendTriageText}
               disabled={!triageText.trim() || sendTriageMessageMutation.isPending}
               className={`rounded-full px-5 py-3 ${
-                triageText.trim() ? 'bg-[#D34008] dark:bg-[#AE3408]' : 'bg-[#D9B9A4]'
+                triageText.trim() ? 'bg-[#D34008] dark:bg-[#AE3408]' : 'bg-[#D9B9A4] dark:bg-[#373737]'
               }`}
             >
               <Text className="text-white font-bold">
