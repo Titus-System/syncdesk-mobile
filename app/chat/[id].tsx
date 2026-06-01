@@ -238,11 +238,17 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
   }
 
   if (attendance.current_message && attendance.current_step_id) {
-    timeline.push({
-      id: `triage-current-${attendance.current_step_id}`,
-      kind: 'ura',
-      content: attendance.current_message,
-    });
+    const lastItem = timeline[timeline.length - 1];
+    const alreadyRendered =
+      lastItem?.kind === 'ura' && lastItem.content.trim() === attendance.current_message.trim();
+
+    if (!alreadyRendered) {
+      timeline.push({
+        id: `triage-current-${attendance.current_step_id}`,
+        kind: 'ura',
+        content: attendance.current_message,
+      });
+    }
   }
 
   if (attendance.result?.closure_message) {
@@ -386,40 +392,35 @@ export default function ChatScreen() {
   );
 
   useEffect(() => {
-  if (!humanMessages.length) return;
+    if (!humanMessages.length) return;
 
-  console.log(
-    '[CHAT MESSAGE SAMPLE]',
-    JSON.stringify(humanMessages[humanMessages.length - 1], null, 2),
-  );
-}, [humanMessages]);
+    console.log(
+      '[CHAT MESSAGE SAMPLE]',
+      JSON.stringify(humanMessages[humanMessages.length - 1], null, 2),
+    );
+  }, [humanMessages]);
 
   const { markConversationAsRead } = useUnreadMessages();
 
-const lastReadTimestampRef = useRef<string | null>(null);
+  const lastReadTimestampRef = useRef<string | null>(null);
 
-useEffect(() => {
-  if (mode !== 'human') return;
-  if (!ticketId) return;
-  if (!humanMessages.length) return;
+  useEffect(() => {
+    if (mode !== 'human') return;
+    if (!ticketId) return;
+    if (!humanMessages.length) return;
 
-  const lastMessage = humanMessages[humanMessages.length - 1];
+    const lastMessage = humanMessages[humanMessages.length - 1];
 
-  if (!lastMessage?.timestamp) return;
+    if (!lastMessage?.timestamp) return;
 
-  if (lastReadTimestampRef.current === lastMessage.timestamp) {
-    return;
-  }
+    if (lastReadTimestampRef.current === lastMessage.timestamp) {
+      return;
+    }
 
-  lastReadTimestampRef.current = lastMessage.timestamp;
+    lastReadTimestampRef.current = lastMessage.timestamp;
 
-  markConversationAsRead(ticketId, lastMessage.timestamp);
-}, [
-  mode,
-  ticketId,
-  humanMessages,
-  markConversationAsRead,
-]);
+    markConversationAsRead(ticketId, lastMessage.timestamp);
+  }, [mode, ticketId, humanMessages, markConversationAsRead]);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -764,7 +765,9 @@ useEffect(() => {
               onPress={handleSendTriageText}
               disabled={!triageText.trim() || sendTriageMessageMutation.isPending}
               className={`rounded-full px-5 py-3 ${
-                triageText.trim() ? 'bg-[#D34008] dark:bg-[#AE3408]' : 'bg-[#D9B9A4] dark:bg-[#373737]'
+                triageText.trim()
+                  ? 'bg-[#D34008] dark:bg-[#AE3408]'
+                  : 'bg-[#D9B9A4] dark:bg-[#373737]'
               }`}
             >
               <Text className="text-white font-bold">
