@@ -1,4 +1,5 @@
 import { Feather, FontAwesome6 } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { useGetMe } from '@titus-system/syncdesk';
 import { apiFetch } from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -52,6 +53,8 @@ type QuickReply = {
 
 type TicketData = {
   status?: string;
+  assigned_agent_name?: string | null;
+  agent_history?: { name: string }[] | null;
 };
 
 type CurrentInput = {
@@ -262,6 +265,29 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
   return timeline;
 }
 
+type AttendantMessageBubbleProps = {
+  message: ChatMessageDto;
+  timestamp: string;
+  attendantName: string;
+};
+
+function AttendantMessageBubble({
+  message,
+  timestamp,
+  attendantName,
+}: AttendantMessageBubbleProps) {
+  return (
+    <View className="mb-3 flex items-start">
+      <View className="max-w-[82%] rounded-3xl px-4 py-3 bg-white dark:bg-[#551707]">
+        <Text className="text-slate-800 text-base dark:text-white">{message.content}</Text>
+      </View>
+      <Text className="text-xs text-[#9F7065] mt-1 px-1">
+        {timestamp} • {attendantName}
+      </Text>
+    </View>
+  );
+}
+
 export default function ChatScreen() {
   const { isDarkMode } = useTheme();
   const params = useLocalSearchParams<RouteParams>();
@@ -316,7 +342,9 @@ export default function ChatScreen() {
     return undefined;
   }, [params.chatId, params.id, mode]);
 
-  const ticketId = params.ticketId ? String(params.ticketId) : undefined;
+  const rawTicketId = params.ticketId ? String(params.ticketId) : undefined;
+  const ticketId =
+    rawTicketId && rawTicketId !== 'undefined' && rawTicketId !== 'null' ? rawTicketId : undefined;
 
   const ticketQuery = useQuery({
     queryKey: ['ticket', ticketId],
@@ -382,9 +410,8 @@ export default function ChatScreen() {
     return dedupeMessages(merged);
   }, [paginatedMessagesQuery.data]);
 
-  const { connectionStatus, liveMessages, sendMessage, lastError } = useLiveChatSocket(
-    mode === 'human' && !isReadOnly ? chatId : undefined,
-  );
+  const { connectionStatus, liveMessages, sendMessage, sendFileMessage, lastError } =
+    useLiveChatSocket(mode === 'human' && !isReadOnly ? chatId : undefined);
 
   const humanMessages = useMemo(
     () => dedupeMessages([...historyMessages, ...liveMessages]),
@@ -536,6 +563,79 @@ export default function ChatScreen() {
       await attendanceQuery.refetch();
     } catch (error: unknown) {
       Alert.alert('Erro', getErrorMessage(error, 'Não foi possível enviar a resposta para a URA.'));
+    }
+  };
+
+  const [isSendingFile, setIsSendingFile] = useState(false);
+
+  const handlePickFile = async () => {
+    if (!chatId) return;
+
+    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+
+    if (result.canceled) return;
+
+    const file = result.assets[0];
+
+    setIsSendingFile(true);
+
+    try {
+      const presign = await apiFetch<{
+        file_id: string;
+        upload_url: string;
+        method: 'POST' | 'PUT';
+        fields: Record<string, string>;
+      }>('/files/presign-upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: file.name,
+          content_type: file.mimeType ?? 'application/octet-stream',
+          size_bytes: file.size ?? 0,
+          context: 'live_chat_message',
+          context_ref: { conversation_id: chatId },
+        }),
+      });
+
+      const formData = new FormData();
+
+      for (const [key, value] of Object.entries(presign.fields)) {
+        formData.append(key, value);
+      }
+
+      if (Platform.OS === 'web' && file.file instanceof File) {
+        formData.append('file', file.file);
+      } else {
+        formData.append('file', {
+          uri: file.uri,
+          name: file.name,
+          type: file.mimeType ?? 'application/octet-stream',
+        } as unknown as Blob);
+      }
+
+      const uploadResponse = await fetch(presign.upload_url, {
+        method: presign.method,
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Falha ao enviar o arquivo para o storage.');
+      }
+
+      await apiFetch(`/files/${presign.file_id}/confirm`, { method: 'POST' });
+
+      const sent = sendFileMessage(
+        presign.file_id,
+        file.name,
+        file.mimeType ?? 'application/octet-stream',
+      );
+
+      if (!sent) {
+        Alert.alert('Erro', 'Não foi possível enviar o arquivo: conexão indisponível.');
+      }
+    } catch (error: unknown) {
+      Alert.alert('Erro', getErrorMessage(error, 'Não foi possível enviar o arquivo.'));
+    } finally {
+      setIsSendingFile(false);
     }
   };
 
@@ -693,29 +793,28 @@ export default function ChatScreen() {
                 );
               }
 
-              return (
-                <View
-                  key={getMessageId(message)}
-                  className={`mb-3 flex ${outgoing ? 'items-end' : 'items-start'}`}
-                >
-                  <View
-                    className={`max-w-[82%] rounded-3xl px-4 py-3 ${
-                      outgoing ? 'bg-[#500D0D]' : 'bg-white dark:bg-[#551707]'
-                    }`}
-                  >
-                    <Text
-                      className={
-                        outgoing
-                          ? 'text-white/70 text-base'
-                          : 'text-slate-800 text-base dark:text-white'
-                      }
-                    >
-                      {message.content}
-                    </Text>
-                  </View>
+              if (!outgoing) {
+                return (
+                  <AttendantMessageBubble
+                    key={getMessageId(message)}
+                    message={message}
+                    timestamp={formatMessageTime(message.timestamp)}
+                    attendantName={
+                      ticketQuery.data?.assigned_agent_name ??
+                      ticketQuery.data?.agent_history?.at(-1)?.name ??
+                      'Atendente'
+                    }
+                  />
+                );
+              }
 
+              return (
+                <View key={getMessageId(message)} className="mb-3 flex items-end">
+                  <View className="max-w-[82%] rounded-3xl px-4 py-3 bg-[#500D0D]">
+                    <Text className="text-white/70 text-base">{message.content}</Text>
+                  </View>
                   <Text className="text-xs text-[#9F7065] mt-1 px-1">
-                    {formatMessageTime(message.timestamp)} • {outgoing ? 'Você' : 'Atendente'}
+                    {formatMessageTime(message.timestamp)} • Você
                   </Text>
                 </View>
               );
@@ -803,6 +902,18 @@ export default function ChatScreen() {
                 onSubmitEditing={handleSendHumanMessage}
               />
             </View>
+
+            <TouchableOpacity
+              onPress={handlePickFile}
+              disabled={!canSendHuman || isSendingFile}
+              className="rounded-full p-3 bg-[#F4EAD9] dark:bg-[#360E07]"
+            >
+              {isSendingFile ? (
+                <ActivityIndicator size={20} color="#9F7065" />
+              ) : (
+                <Feather name="paperclip" size={20} color="#9F7065" />
+              )}
+            </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleSendHumanMessage}

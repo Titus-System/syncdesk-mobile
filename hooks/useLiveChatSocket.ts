@@ -199,10 +199,26 @@ export function useLiveChatSocket(chatId?: string) {
       return false;
     }
 
+    socket.send(JSON.stringify({ type: 'text', content }));
+
+    return true;
+  }, []);
+
+  const sendFileMessage = useCallback((fileId: string, filename: string, mimeType: string) => {
+    const socket = socketRef.current;
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      setLastError('Conexão em tempo real indisponível.');
+      return false;
+    }
+
     socket.send(
       JSON.stringify({
-        type: 'text',
-        content,
+        type: 'file',
+        file_id: fileId,
+        filename,
+        mime_type: mimeType,
+        content: filename,
       }),
     );
 
@@ -213,6 +229,7 @@ export function useLiveChatSocket(chatId?: string) {
     connectionStatus,
     liveMessages,
     sendMessage,
+    sendFileMessage,
     lastError,
   };
 }
