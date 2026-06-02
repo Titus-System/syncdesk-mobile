@@ -54,7 +54,6 @@ async function fetchCompanyProducts(companyId: string) {
 function resolveSearchRoute(term: string): '/tickets' | '/chat' | '/profile' | null {
   const normalized = term.trim().toLowerCase();
   if (!normalized) return null;
-
   if (/(ticket|chamado)/.test(normalized)) return '/tickets';
   if (/(atendimento|chat|conversa|mensagem)/.test(normalized)) return '/chat';
   if (/(perfil|conta|usu[aá]rio)/.test(normalized)) return '/profile';

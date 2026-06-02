@@ -195,16 +195,16 @@ function getTicketTitle(type?: string, product?: string | null) {
 function getTicketIcon(type?: string): keyof typeof FontAwesome6.glyphMap {
   switch (type) {
     case 'issue':
-      return 'triangle-exclamation';
+      return 'circle-exclamation';
 
     case 'new_feature':
-      return 'lightbulb';
+      return 'question-circle';
 
     case 'access':
       return 'universal-access';
 
     default:
-      return 'headset';
+      return 'question-circle';
   }
 }
 
@@ -236,14 +236,14 @@ export default function SupportScreen() {
   } = useClientConversations(user?.id ? String(user.id) : undefined);
 
   useEffect(() => {
-  if (!user?.id) return;
+    if (!user?.id) return;
 
-  const interval = setInterval(() => {
-    refetch();
-  }, 4000);
+    const interval = setInterval(() => {
+      refetch();
+    }, 4000);
 
-  return () => clearInterval(interval);
-}, [user?.id, refetch]);
+    return () => clearInterval(interval);
+  }, [user?.id, refetch]);
 
   const isSearching = debouncedSearch.length >= 5;
 
@@ -271,19 +271,11 @@ export default function SupportScreen() {
     return (conversations as ConversationItem[]) ?? [];
   }, [isSearching, searchData, conversations]);
 
-  useConversationUnreadCounts(
-  typedConversations,
-  user?.id ? String(user.id) : null,
-);
+  useConversationUnreadCounts(typedConversations, user?.id ? String(user.id) : null);
 
   useEffect(() => {
-  if (!typedConversations.length) return;
-
-  console.log(
-    '[CONVERSATION SAMPLE]',
-    JSON.stringify(typedConversations[0], null, 2),
-  );
-}, [typedConversations]);
+    if (!typedConversations.length) return;
+  }, [typedConversations]);
 
   const createTriageMutation = useCreateTriageMutation();
 
@@ -512,7 +504,7 @@ export default function SupportScreen() {
             {isError && !isLoading ? (
               <View className="px-5">
                 <TouchableOpacity onPress={() => refetch()} className="bg-white rounded-2xl p-5">
-                  <Text className="text-[#500D0D] font-bold text-lg mb-1">
+                  <Text className="text-[#500D0D] dark:text-white font-bold text-lg mb-1">
                     Não foi possível carregar seus atendimentos
                   </Text>
 
@@ -546,17 +538,14 @@ export default function SupportScreen() {
                   ? (ticketProductMap[String(conversation.ticket_id)] ?? null)
                   : null;
 
-                const unreadCount =
-                  conversation.ticket_id
-                    ? unreadMap[
-                        String(conversation.ticket_id)
-                      ] ?? 0
-                    : 0;
-                
+                const unreadCount = conversation.ticket_id
+                  ? (unreadMap[String(conversation.ticket_id)] ?? 0)
+                  : 0;
+
                 return (
                   <TouchableOpacity
                     key={String(conversation.id)}
-                    className="flex flex-row gap-5 items-center bg-white mx-4 px-4 py-4 w-full dark:bg-[#551707]"
+                    className="flex flex-row gap-5 items-center bg-white px-4 py-4 w-full dark:bg-[#551707]"
                     style={{
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 2 },
@@ -603,11 +592,7 @@ export default function SupportScreen() {
                         className="bg-[#D34008] dark:bg-[#AE3408] w-16 h-16 rounded-full items-center justify-center shrink-0"
                         onPress={() => handleOpenAttendanceModal(conversation)}
                       >
-                        <FontAwesome6
-                          name="headset"
-                          size={26}
-                          color="white"
-                        />
+                        <FontAwesome6 name="headset" size={26} color="white" />
                       </TouchableOpacity>
 
                       {unreadCount > 0 && (
@@ -640,20 +625,25 @@ export default function SupportScreen() {
 
                     <View className="flex flex-col gap-2 w-[60%]">
                       <View className="flex flex-row items-center justify-between">
-                        <Text className="font-extrabold text-2xl dark:text-white">
-                          {conversation.finished_at
-                            ? 'Atendimento encerrado'
-                            : 'Atendimento em andamento'}
-                        </Text>
-
-                        <View className="flex flex-row items-center justify-between">
-                          <Text className="text-base text-gray-500 flex-1 mr-2" numberOfLines={1}>
-                            {product ? `${product} • ${preview}` : preview}
-                          </Text>
-
-                          <Text className="text-[#9F7065] font-medium text-sm shrink-0">
-                            {time}
-                          </Text>
+                        <View className="flex flex-col">
+                          <View className="flex flex-row">
+                            <Text className="font-extrabold text-2xl dark:text-white">
+                              {conversation.finished_at
+                                ? 'Atendimento encerrado'
+                                : 'Atendimento em andamento'}
+                            </Text>
+                            <Text className="text-[#9F7065] font-medium text-sm shrink-0">
+                              {time}
+                            </Text>
+                          </View>
+                          <View className="flex flex-row items-center justify-between">
+                            <Text
+                              className="text-base text-gray-500 dark:text-[#D2CDCD] flex-1 mr-2 mt-1"
+                              numberOfLines={1}
+                            >
+                              {preview}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>

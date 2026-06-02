@@ -336,11 +336,6 @@ export default function TicketsScreen() {
                   ? criticalityOptions.find((option) => option.value === selectedCriticality)?.label
                   : 'Criticidade'}
               </Text>
-              <MaterialIcons
-                name={openDropdown === 'criticality' ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
-                size={28}
-                color={isDarkMode ? '#A69491' : '#9F7065'}
-              />
             </TouchableOpacity>
 
             {openDropdown === 'criticality' ? (
@@ -371,11 +366,6 @@ export default function TicketsScreen() {
                   ? statusOptions.find((option) => option.value === selectedStatus)?.label
                   : 'Status'}
               </Text>
-              <MaterialIcons
-                name={openDropdown === 'status' ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
-                size={28}
-                color={isDarkMode ? '#A69491' : '#9F7065'}
-              />
             </TouchableOpacity>
 
             {openDropdown === 'status' ? (
@@ -402,7 +392,7 @@ export default function TicketsScreen() {
                 setSelectedCriticality(undefined);
                 setSelectedStatus(undefined);
               }}
-              className="bg-red-100 px-3 py-2 rounded-lg"
+              className="bg-red-100 dark:bg-red-100/20 dark:rounded-full px-3 py-2 rounded-lg"
             >
               <Text className="text-red-600 dark:text-[#A69491]">✕</Text>
             </TouchableOpacity>
@@ -434,13 +424,6 @@ export default function TicketsScreen() {
                       <View className="ml-5 flex-1">
                         <Text className="font-bold text-xl mb-2 text-[#1E293B] dark:text-white">
                           {getTicketTitle(ticket)}
-                        </Text>
-
-                        <Text
-                          className="text-[#6B7280] text-xs dark:text-[#D2CDCD]"
-                          numberOfLines={1}
-                        >
-                          {getFriendlyTicketId(ticket)}
                         </Text>
                       </View>
                     </View>

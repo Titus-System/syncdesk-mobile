@@ -84,7 +84,7 @@ function MenuItemSwitch({
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: '#d1d5db', true: '#500D0D' }}
+        trackColor={{ false: '#d1d5db', true: '#D34008' }}
         thumbColor={value ? '#ffffff' : '#f4f3f4'}
       />
     </View>

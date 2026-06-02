@@ -97,7 +97,9 @@ export default function ListProductsScreen() {
             </Text>
 
             {!!product.description && (
-              <Text className="text-slate-600 text-sm mt-1">{product.description}</Text>
+              <Text className="text-slate-600 text-sm mt-1 dark:text-[#D2CDCD]">
+                {product.description}
+              </Text>
             )}
           </View>
         ))}
