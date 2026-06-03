@@ -2,14 +2,9 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import { KeyboardAvoidingView } from '@/components/KeyboardAvoidingView';
 
 import { apiFetch } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
@@ -48,67 +43,62 @@ export default function ForgotPasswordScreen() {
 
   return (
     <LinearGradient
-    colors={[
-      '#2A0404',
-      '#4B0909',
-      '#BD3B0F',
-    ]}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={{ flex: 1 }}
-  >
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      colors={['#2A0404', '#4B0909', '#BD3B0F']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
     >
-      <View className="flex-1 px-6 pt-14 gap-8">
-        <TouchableOpacity onPress={() => router.back()} className="self-start">
-          <Feather name="arrow-left" size={24} color="white" />
-        </TouchableOpacity>
+      <KeyboardAvoidingView className="flex-1">
+        <View className="flex-1 px-6 pt-14 gap-8">
+          <TouchableOpacity onPress={() => router.back()} className="self-start">
+            <Feather name="arrow-left" size={24} color="white" />
+          </TouchableOpacity>
 
-        <View className="items-center gap-4">
-          <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
-          <Text className="text-white text-3xl font-bold text-center">
-            {success ? 'E-mail Enviado!' : 'Redefinir Senha'}
-          </Text>
-          <Text className="text-white/60 text-sm text-center leading-5">
-            {success
-              ? 'Enviamos um link mágico de redefinição para a sua caixa de entrada. Por favor, cheque seu e-mail para continuar.'
-              : 'Informe seu e-mail cadastrado para receber o link de redefinição de senha.'}
-          </Text>
-        </View>
-
-        {!success && (
-          <View className="gap-4">
-            <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
-              <Feather name="mail" size={20} color="rgba(255,255,255,0.5)" />
-              <TextInput
-                className="flex-1 text-white"
-                placeholder="Endereço de e-mail"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-                editable={!isLoading}
-              />
-            </View>
-
-            {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
-
-            <TouchableOpacity
-              className="bg-[#E05500] rounded-2xl py-4 items-center"
-              disabled={isLoading || !email}
-              onPress={handleSendCode}
-            >
-              <Text className="text-white font-bold text-base">
-                {isLoading ? 'Enviando...' : 'Enviar link de recuperação'}
-              </Text>
-            </TouchableOpacity>
+          <View className="items-center gap-4">
+            <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
+            <Text className="text-white text-3xl font-bold text-center">
+              {success ? 'E-mail Enviado!' : 'Redefinir Senha'}
+            </Text>
+            <Text className="text-white/60 text-sm text-center leading-5">
+              {success
+                ? 'Enviamos um link mágico de redefinição para a sua caixa de entrada. Por favor, cheque seu e-mail para continuar.'
+                : 'Informe seu e-mail cadastrado para receber o link de redefinição de senha.'}
+            </Text>
           </View>
-        )}
-      </View>
-    </KeyboardAvoidingView>
+
+          {!success && (
+            <View className="gap-4">
+              <View className="bg-[#3D1010] rounded-2xl flex-row items-center px-4 py-4 gap-3">
+                <Feather name="mail" size={20} color="rgba(255,255,255,0.5)" />
+                <TextInput
+                  className="flex-1 text-white"
+                  placeholder="Endereço de e-mail"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                  editable={!isLoading}
+                />
+              </View>
+
+              {errorMsg ? (
+                <Text className="text-red-400 text-sm text-center">{errorMsg}</Text>
+              ) : null}
+
+              <TouchableOpacity
+                className="bg-[#E05500] rounded-2xl py-4 items-center"
+                disabled={isLoading || !email}
+                onPress={handleSendCode}
+              >
+                <Text className="text-white font-bold text-base">
+                  {isLoading ? 'Enviando...' : 'Enviar link de recuperação'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }

@@ -3,15 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import { KeyboardAvoidingView } from '@/components/KeyboardAvoidingView';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch, UnauthorizedError } from '@/lib/api';
@@ -118,188 +112,181 @@ export default function ChangePasswordScreen() {
 
   return (
     <LinearGradient
-    colors={[
-      '#2A0404',
-      '#4B0909',
-      '#BD3B0F',
-    ]}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={{ flex: 1 }}
-  >
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      colors={['#2A0404', '#4B0909', '#BD3B0F']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
     >
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="flex-1 px-6 pt-14 pb-10 gap-8">
-          <TouchableOpacity
-            onPress={handleCancel}
-            className="self-start"
-            disabled={isLoading}
-            accessibilityRole="button"
-            accessibilityLabel="Sair da troca de senha"
-          >
-            <Feather name="arrow-left" size={24} color="white" />
-          </TouchableOpacity>
-
-          <View className="items-center gap-4">
-            <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
-
-            <Text className="text-white text-3xl font-bold text-center">Alterar senha</Text>
-
-            <Text className="text-white/60 text-sm text-center leading-5">
-              Para continuar usando o SyncDesk, informe a senha temporária recebida por e-mail e
-              defina uma nova senha.
-            </Text>
-          </View>
-
-          <View className="gap-4">
-            <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
-              <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
-
-              <TextInput
-                className="flex-1 text-white"
-                placeholder="Senha temporária"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                secureTextEntry={!showCurrentPassword}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                editable={!isLoading}
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="password"
-              />
-
-              <TouchableOpacity
-                onPress={() => setShowCurrentPassword((prev) => !prev)}
-                disabled={isLoading}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  showCurrentPassword ? 'Ocultar senha temporária' : 'Mostrar senha temporária'
-                }
-              >
-                <Feather
-                  name={showCurrentPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color="rgba(255,255,255,0.5)"
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
-              <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
-
-              <TextInput
-                className="flex-1 text-white"
-                placeholder="Nova senha"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                secureTextEntry={!showNewPassword}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                editable={!isLoading}
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="newPassword"
-              />
-
-              <TouchableOpacity
-                onPress={() => setShowNewPassword((prev) => !prev)}
-                disabled={isLoading}
-                accessibilityRole="button"
-                accessibilityLabel={showNewPassword ? 'Ocultar nova senha' : 'Mostrar nova senha'}
-              >
-                <Feather
-                  name={showNewPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color="rgba(255,255,255,0.5)"
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
-              <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
-
-              <TextInput
-                className="flex-1 text-white"
-                placeholder="Confirmar nova senha"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                secureTextEntry={!showConfirmPassword}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                editable={!isLoading}
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="newPassword"
-              />
-
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword((prev) => !prev)}
-                disabled={isLoading}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  showConfirmPassword
-                    ? 'Ocultar confirmação de senha'
-                    : 'Mostrar confirmação de senha'
-                }
-              >
-                <Feather
-                  name={showConfirmPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color="rgba(255,255,255,0.5)"
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View className="gap-2 px-1">
-              <Requirement met={hasMinLength} label="Mínimo de 8 caracteres" />
-              <Requirement met={hasLowercase} label="Pelo menos uma letra minúscula" />
-              <Requirement met={hasUppercase} label="Pelo menos uma letra maiúscula" />
-              <Requirement met={hasNumber} label="Pelo menos um número" />
-              <Requirement met={hasSpecialChar} label="Pelo menos um caractere especial" />
-              <Requirement met={passwordsMatch} label="As senhas precisam ser iguais" />
-              <Requirement
-                met={isDifferentFromCurrent}
-                label="A nova senha deve ser diferente da atual"
-              />
-            </View>
-
-            {errorMsg ? (
-              <Text className="text-red-400 text-sm text-center leading-5">{errorMsg}</Text>
-            ) : null}
-
+      <KeyboardAvoidingView className="flex-1">
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 px-6 pt-14 pb-10 gap-8">
             <TouchableOpacity
-              className={`rounded-[40px] py-4 items-center ${
-                isValid && !isLoading ? 'bg-[#E05500]' : 'bg-[#373737]'
-              }`}
-              disabled={!isValid || isLoading}
-              onPress={handleChangePassword}
-              accessibilityRole="button"
-              accessibilityLabel="Alterar senha"
-              accessibilityState={{ disabled: !isValid || isLoading, busy: isLoading }}
-            >
-              <Text className="text-white font-bold text-base">
-                {isLoading ? 'Salvando...' : 'Alterar senha'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="items-center py-2"
-              disabled={isLoading}
               onPress={handleCancel}
+              className="self-start"
+              disabled={isLoading}
               accessibilityRole="button"
-              accessibilityLabel="Sair e voltar para o login"
+              accessibilityLabel="Sair da troca de senha"
             >
-              <Text className="text-white/50 font-medium">Sair e voltar para o login</Text>
+              <Feather name="arrow-left" size={24} color="white" />
             </TouchableOpacity>
+
+            <View className="items-center gap-4">
+              <MaterialCommunityIcons name="lock-reset" size={80} color="white" />
+
+              <Text className="text-white text-3xl font-bold text-center">Alterar senha</Text>
+
+              <Text className="text-white/60 text-sm text-center leading-5">
+                Para continuar usando o SyncDesk, informe a senha temporária recebida por e-mail e
+                defina uma nova senha.
+              </Text>
+            </View>
+
+            <View className="gap-4">
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
+                <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
+
+                <TextInput
+                  className="flex-1 text-white"
+                  placeholder="Senha temporária"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  secureTextEntry={!showCurrentPassword}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  editable={!isLoading}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                />
+
+                <TouchableOpacity
+                  onPress={() => setShowCurrentPassword((prev) => !prev)}
+                  disabled={isLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showCurrentPassword ? 'Ocultar senha temporária' : 'Mostrar senha temporária'
+                  }
+                >
+                  <Feather
+                    name={showCurrentPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color="rgba(255,255,255,0.5)"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
+                <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
+
+                <TextInput
+                  className="flex-1 text-white"
+                  placeholder="Nova senha"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  secureTextEntry={!showNewPassword}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  editable={!isLoading}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
+                />
+
+                <TouchableOpacity
+                  onPress={() => setShowNewPassword((prev) => !prev)}
+                  disabled={isLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={showNewPassword ? 'Ocultar nova senha' : 'Mostrar nova senha'}
+                >
+                  <Feather
+                    name={showNewPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color="rgba(255,255,255,0.5)"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View className="bg-[#F4EAD9]/15 rounded-[40px] flex-row items-center px-4 py-2 gap-3 border-[1px] border-[#F4EAD9]/30">
+                <Feather name="lock" size={20} color="rgba(255,255,255,0.5)" />
+
+                <TextInput
+                  className="flex-1 text-white"
+                  placeholder="Confirmar nova senha"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  secureTextEntry={!showConfirmPassword}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  editable={!isLoading}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
+                />
+
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword((prev) => !prev)}
+                  disabled={isLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showConfirmPassword
+                      ? 'Ocultar confirmação de senha'
+                      : 'Mostrar confirmação de senha'
+                  }
+                >
+                  <Feather
+                    name={showConfirmPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color="rgba(255,255,255,0.5)"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View className="gap-2 px-1">
+                <Requirement met={hasMinLength} label="Mínimo de 8 caracteres" />
+                <Requirement met={hasLowercase} label="Pelo menos uma letra minúscula" />
+                <Requirement met={hasUppercase} label="Pelo menos uma letra maiúscula" />
+                <Requirement met={hasNumber} label="Pelo menos um número" />
+                <Requirement met={hasSpecialChar} label="Pelo menos um caractere especial" />
+                <Requirement met={passwordsMatch} label="As senhas precisam ser iguais" />
+                <Requirement
+                  met={isDifferentFromCurrent}
+                  label="A nova senha deve ser diferente da atual"
+                />
+              </View>
+
+              {errorMsg ? (
+                <Text className="text-red-400 text-sm text-center leading-5">{errorMsg}</Text>
+              ) : null}
+
+              <TouchableOpacity
+                className={`rounded-[40px] py-4 items-center ${
+                  isValid && !isLoading ? 'bg-[#E05500]' : 'bg-[#373737]'
+                }`}
+                disabled={!isValid || isLoading}
+                onPress={handleChangePassword}
+                accessibilityRole="button"
+                accessibilityLabel="Alterar senha"
+                accessibilityState={{ disabled: !isValid || isLoading, busy: isLoading }}
+              >
+                <Text className="text-white font-bold text-base">
+                  {isLoading ? 'Salvando...' : 'Alterar senha'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="items-center py-2"
+                disabled={isLoading}
+                onPress={handleCancel}
+                accessibilityRole="button"
+                accessibilityLabel="Sair e voltar para o login"
+              >
+                <Text className="text-white/50 font-medium">Sair e voltar para o login</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }

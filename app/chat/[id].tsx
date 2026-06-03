@@ -10,7 +10,6 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Text,
@@ -18,6 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import { KeyboardAvoidingView } from '@/components/KeyboardAvoidingView';
 
 import { useAttendanceQuery } from '@/hooks/useAttendanceQuery';
 import { useLiveChatSocket } from '@/hooks/useLiveChatSocket';
@@ -656,10 +657,7 @@ export default function ChatScreen() {
   const canSendHuman = connectionStatus === 'connected';
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
       <View className="bg-[#500D0D] px-5 pt-14 pb-4 flex-row items-center justify-between">
         <View className="flex-row items-center gap-3">
           <TouchableOpacity onPress={() => router.back()}>

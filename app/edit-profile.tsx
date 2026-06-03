@@ -3,6 +3,8 @@ import type { UpdateUserDTO } from '@titus-system/syncdesk';
 import { useGetMe, usePatchUser } from '@titus-system/syncdesk';
 import { router } from 'expo-router';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import { KeyboardAvoidingView } from '@/components/KeyboardAvoidingView';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -49,7 +51,7 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
+    <KeyboardAvoidingView className="flex-1 bg-[#F4EAD9] dark:bg-[#1F0606]">
       <View className="bg-[#500D0D] h-[14%] px-5 pt-14 pb-4 flex-row items-center">
         <View className="flex-row items-center gap-3">
           <TouchableOpacity onPress={() => router.back()}>
@@ -105,6 +107,6 @@ export default function EditProfileScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

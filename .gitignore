@@ -260,3 +260,6 @@ Temporary Items
 
 expo-env.d.ts
 # @end expo-cli
+
+/android
+/ios

@@ -8,8 +8,6 @@ import {
   ActivityIndicator,
   Modal,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -17,6 +15,8 @@ import {
   View,
   type TextInput as TextInputType,
 } from 'react-native';
+
+import { KeyboardAvoidingView } from '@/components/KeyboardAvoidingView';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api';
@@ -118,24 +118,15 @@ export default function LoginScreen() {
 
   return (
     <LinearGradient
-      colors={[
-  '#2A0404',
-  '#4B0909',
-  '#BD3B0F',
-]}
+      colors={['#2A0404', '#4B0909', '#BD3B0F']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ flex: 1 }}
     >
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
+      <KeyboardAvoidingView className="flex-1">
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
           keyboardShouldPersistTaps="handled"
-          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-1 justify-center px-6 py-10">
@@ -219,7 +210,9 @@ export default function LoginScreen() {
                 <Text className="text-white/60 font-medium">Esqueceu a senha?</Text>
               </TouchableOpacity>
 
-              {errorMsg ? <Text className="text-red-400 text-sm text-center">{errorMsg}</Text> : null}
+              {errorMsg ? (
+                <Text className="text-red-400 text-sm text-center">{errorMsg}</Text>
+              ) : null}
             </View>
 
             <TouchableOpacity

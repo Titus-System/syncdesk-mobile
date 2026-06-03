@@ -2,14 +2,9 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import { KeyboardAvoidingView } from '@/components/KeyboardAvoidingView';
 
 import { apiFetch } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errors';
@@ -76,15 +71,12 @@ export default function NewPasswordScreen() {
 
   return (
     <LinearGradient
-      colors={['#2A0404', '#4B0909','#BD3B0F',]}
+      colors={['#2A0404', '#4B0909', '#BD3B0F']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ flex: 1 }}
     >
-      <KeyboardAvoidingView
-        className="flex-1 bg-[#1C0505]"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <KeyboardAvoidingView className="flex-1 bg-[#1C0505]">
         <View className="flex-1 px-6 pt-14 gap-8">
           <TouchableOpacity onPress={() => router.back()} className="self-start">
             <Feather name="arrow-left" size={24} color="white" />
@@ -112,7 +104,10 @@ export default function NewPasswordScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} disabled={isLoading}>
+              <TouchableOpacity
+                onPress={() => setShowPassword((prev) => !prev)}
+                disabled={isLoading}
+              >
                 <Feather
                   name={showPassword ? 'eye-off' : 'eye'}
                   size={20}
