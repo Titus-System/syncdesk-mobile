@@ -10,6 +10,8 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  Linking,
   Platform,
   ScrollView,
   Text,
@@ -266,6 +268,74 @@ function buildTriageTimeline(attendance?: AttendanceData): TriageTimelineItem[] 
   return timeline;
 }
 
+type FileAttachmentProps = {
+  fileId: string;
+  filename?: string | null | undefined;
+  mimeType?: string | null | undefined;
+  outgoing?: boolean;
+};
+
+function FileAttachment({ fileId, filename, mimeType, outgoing }: FileAttachmentProps) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['file-download-url', fileId],
+    queryFn: () => apiFetch<{ url: string }>(`/files/${fileId}/download-url`),
+    enabled: !!fileId,
+    staleTime: 1000 * 60 * 4,
+  });
+
+  if (isLoading) {
+    return (
+      <View className="flex-row items-center gap-2 py-1">
+        <ActivityIndicator size="small" color={outgoing ? '#FFFFFF' : '#500D0D'} />
+        <Text className={`text-sm ${outgoing ? 'text-white/80' : 'text-[#9F7065]'}`}>
+          Carregando arquivo...
+        </Text>
+      </View>
+    );
+  }
+
+  if (isError || !data?.url) {
+    return (
+      <View className="flex-row items-center gap-2 py-1">
+        <Feather name="alert-triangle" size={16} color="#DC2626" />
+        <Text className="text-sm text-red-500">Erro ao carregar arquivo</Text>
+      </View>
+    );
+  }
+
+  const url = data.url;
+  const isImage = mimeType?.startsWith('image/') ?? false;
+
+  if (isImage) {
+    return (
+      <TouchableOpacity onPress={() => void Linking.openURL(url)} activeOpacity={0.85}>
+        <Image
+          source={{ uri: url }}
+          className="w-56 h-56 rounded-2xl"
+          resizeMode="cover"
+          accessibilityLabel={filename ?? 'Imagem anexada'}
+        />
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={() => void Linking.openURL(url)}
+      activeOpacity={0.85}
+      className="flex-row items-center gap-2 py-1"
+    >
+      <Feather name="file-text" size={20} color={outgoing ? '#FFFFFF' : '#500D0D'} />
+      <Text
+        className={`text-sm font-medium underline ${outgoing ? 'text-white' : 'text-slate-800 dark:text-white'}`}
+        numberOfLines={1}
+      >
+        {filename ?? 'Visualizar arquivo'}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 type AttendantMessageBubbleProps = {
   message: ChatMessageDto;
   timestamp: string;
@@ -280,7 +350,15 @@ function AttendantMessageBubble({
   return (
     <View className="mb-3 flex items-start">
       <View className="max-w-[82%] rounded-3xl px-4 py-3 bg-white dark:bg-[#551707]">
-        <Text className="text-slate-800 text-base dark:text-white">{message.content}</Text>
+        {message.type === 'file' ? (
+          <FileAttachment
+            fileId={message.file_id ?? message.content}
+            filename={message.filename}
+            mimeType={message.mime_type}
+          />
+        ) : (
+          <Text className="text-slate-800 text-base dark:text-white">{message.content}</Text>
+        )}
       </View>
       <Text className="text-xs text-[#9F7065] mt-1 px-1">
         {timestamp} • {attendantName}
@@ -809,7 +887,16 @@ export default function ChatScreen() {
               return (
                 <View key={getMessageId(message)} className="mb-3 flex items-end">
                   <View className="max-w-[82%] rounded-3xl px-4 py-3 bg-[#500D0D]">
-                    <Text className="text-white/70 text-base">{message.content}</Text>
+                    {message.type === 'file' ? (
+                      <FileAttachment
+                        fileId={message.file_id ?? message.content}
+                        filename={message.filename}
+                        mimeType={message.mime_type}
+                        outgoing
+                      />
+                    ) : (
+                      <Text className="text-white/70 text-base">{message.content}</Text>
+                    )}
                   </View>
                   <Text className="text-xs text-[#9F7065] mt-1 px-1">
                     {formatMessageTime(message.timestamp)} • Você

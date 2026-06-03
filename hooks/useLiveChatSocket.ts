@@ -218,7 +218,7 @@ export function useLiveChatSocket(chatId?: string) {
         file_id: fileId,
         filename,
         mime_type: mimeType,
-        content: filename,
+        content: fileId,
       }),
     );
 

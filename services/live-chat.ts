@@ -9,6 +9,7 @@ export type ChatMessageDto = {
   content: string;
   mime_type?: string | null;
   filename?: string | null;
+  file_id?: string | null;
   responding_to?: string | null;
 };
 
